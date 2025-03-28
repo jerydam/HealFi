@@ -165,15 +165,3 @@ HeFi/
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Contact
-For questions or collaboration, reach out via [your-email@example.com](mailto:your-email@example.com) or open an issue on GitHub.
-```
-
----
-
-### Confirmation
-- The file is in Markdown format with the `.md` extension, as requested.
-- It’s tailored for Foundry and includes all necessary instructions for your HeFi project.
-
-If you meant something else by "chainge to markdown extension" (e.g., converting the smart contract or another file to Markdown), please let me know, and I’ll adjust accordingly!
