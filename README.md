@@ -1,9 +1,9 @@
-# HeFi - Decentralized Health Savings and Microcredit Platform
+# HealFi - Decentralized Health Savings and Microcredit Platform
 
-HeFi is a decentralized platform built on the CELO blockchain, designed to provide affordable health savings and microcredit solutions for underserved communities, particularly in Africa. Leveraging CELO's stablecoins (cUSD) and a community-driven governance model, HeFi enables users to save for healthcare, access low/no-interest microloans, and connect with healthcare providers—all without traditional banking systems.
+HealFi is a decentralized platform built on the CELO blockchain, designed to provide affordable health savings and microcredit solutions for underserved communities, particularly in Africa. Leveraging CELO's stablecoins (cUSD) and a community-driven governance model, HealFi enables users to save for healthcare, access low/no-interest microloans, and connect with healthcare providers—all without traditional banking systems.
 
 ## Problem Context
-Access to healthcare financing in Africa is limited due to high out-of-pocket costs, inadequate insurance, and inaccessible microcredit systems with high interest rates. HeFi offers a transparent, secure, and inclusive solution.
+Access to healthcare financing in Africa is limited due to high out-of-pocket costs, inadequate insurance, and inaccessible microcredit systems with high interest rates. HealFi offers a transparent, secure, and inclusive solution.
 
 ## Features
 - **Health Savings Pools**: Save small amounts in cUSD, pooled into smart contracts for interest via staking.
@@ -30,8 +30,8 @@ Access to healthcare financing in Africa is limited due to high out-of-pocket co
 ## Installation
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/Blockchain-Lautech-Club/HeFi.git
-   cd HeFi
+   git clone https://github.com/Blockchain-Lautech-Club/HealFi.git
+   cd HealFi
    ```
 
 2. **Install Dependencies**:
@@ -62,9 +62,9 @@ Access to healthcare financing in Africa is limited due to high out-of-pocket co
 
 ## Deployment
 1. **Deploy to CELO Alfajores Testnet**:
-   Deploy the `HeFi` contract using Forge:
+   Deploy the `HealFi` contract using Forge:
    ```bash
-   forge create src/HeFi.sol:HeFi --rpc-url $CELO_RPC_URL --private-key $PRIVATE_KEY --constructor-args $CUSD_ADDRESS
+   forge create src/HealFi.sol:HealFi --rpc-url $CELO_RPC_URL --private-key $PRIVATE_KEY --constructor-args $CUSD_ADDRESS
    ```
    - Replace `$CUSD_ADDRESS` with the cUSD contract address.
    - The command outputs the deployed contract address.
@@ -72,7 +72,7 @@ Access to healthcare financing in Africa is limited due to high out-of-pocket co
 2. **Verify Contract (Optional)**:
    Verify the contract on Celo Explorer using:
    ```bash
-   forge verify-contract --chain-id 44787 --rpc-url $CELO_RPC_URL <deployed_address> src/HeFi.sol:HeFi
+   forge verify-contract --chain-id 44787 --rpc-url $CELO_RPC_URL <deployed_address> src/HealFi.sol:HealFi
    ```
 
 ## Usage
@@ -109,26 +109,26 @@ Run the test suite using Forge:
 ```bash
 forge test
 ```
-- Place test files in `test/` (e.g., `test/HeFi.t.sol`).
+- Place test files in `test/` (e.g., `test/HealFi.t.sol`).
 - Example test setup:
   ```solidity
   // SPDX-License-Identifier: MIT
   pragma solidity ^0.8.0;
 
   import "forge-std/Test.sol";
-  import "../src/HeFi.sol";
+  import "../src/HealFi.sol";
 
-  contract HeFiTest is Test {
-      HeFi heFi;
+  contract HealFiTest is Test {
+      HealFi HealFi;
       address cUSD = 0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
 
       function setUp() public {
-          HeFi = new HeFi(cUSD);
+          HealFi = new HealFi(cUSD);
       }
 
       function testAddSavings() public {
-          HeFi.addSavings(1e18);
-          assertEq(HeFi.savings(address(this)), 1e18);
+          HealFi.addSavings(1e18);
+          assertEq(HealFi.savings(address(this)), 1e18);
       }
   }
   ```
@@ -148,9 +148,9 @@ Interact with the contract locally using Cast or a frontend.
 
 ## Project Structure
 ```
-HeFi/
-├── src/                # Smart contracts (e.g., HeFi.sol)
-├── test/               # Test files (e.g., HeFi.t.sol)
+HealFi/
+├── src/                # Smart contracts (e.g., HealFi.sol)
+├── test/               # Test files (e.g., HealFi.t.sol)
 ├── lib/                # Dependencies (e.g., OpenZeppelin)
 ├── foundry.toml        # Foundry configuration
 └── README.md           # This file
