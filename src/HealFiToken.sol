@@ -3,24 +3,27 @@ pragma solidity ^0.8.0;
 
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "../lib/openzeppelin-contracts/contracts/security/Pausable.sol";
+import "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 
 /**
- * @title HealFiToken
- * @dev Health Support Token for the HealFi platform
+ * @title HealFi Token
+ * @notice ERC20 token for the HealFi ecosystem
  */
-contract HealFiToken is ERC20, Ownable {
+contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    string public constant VERSION = "1.0.0";
+    
     address public savingsContract;
     address public microcreditContract;
     address public partnersContract;
     
     mapping(address => bool) public rewardDistributors;
-    uint256 public maxSupply = 1000000000 * 10**18; // 1 billion tokens
+    uint256 public maxSupply = 1000000000 * 10**18;
     
-    // Token utility
     mapping(address => uint256) public userReputationScore;
     mapping(address => uint256) public lastTokenUsage;
     
-    // Rewards tracking
     struct RewardEvent {
         address user;
         uint256 amount;
@@ -30,25 +33,28 @@ contract HealFiToken is ERC20, Ownable {
     
     RewardEvent[] public rewardHistory;
     
-    // Events
     event RewardTokensMinted(address indexed user, uint256 amount, string reason);
     event TokensRedeemed(address indexed user, uint256 amount, string service);
     event ContractsSet(address savings, address microcredit, address partners);
+    event EmergencyWithdrawal(address indexed user, uint256 amount);
+    event VersionUpgraded(string newVersion);
     
     constructor() ERC20("Health Support Token", "HST") {
-        // Mint initial supply for governance and incentives
-        _mint(msg.sender, 100000000 * 10**18); // 100 million tokens (10% of max supply)
+        _mint(msg.sender, 100000000 * 10**18);
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(MINTER_ROLE, msg.sender);
     }
     
-    /**
-     * @dev Set addresses of related contracts
-     */
-    function setContracts(address _savingsContract, address _microcreditContract, address _partnersContract) external onlyOwner {
+    /// @notice Sets related contract addresses
+    function setContracts(address _savingsContract, address _microcreditContract, address _partnersContract) 
+        external 
+        onlyOwner 
+        whenNotPaused 
+    {
         savingsContract = _savingsContract;
         microcreditContract = _microcreditContract;
         partnersContract = _partnersContract;
         
-        // Add contracts as reward distributors
         rewardDistributors[_savingsContract] = true;
         rewardDistributors[_microcreditContract] = true;
         rewardDistributors[_partnersContract] = true;
@@ -56,24 +62,20 @@ contract HealFiToken is ERC20, Ownable {
         emit ContractsSet(_savingsContract, _microcreditContract, _partnersContract);
     }
     
-    /**
-     * @dev Mint reward tokens for users (can only be called by approved contracts)
-     */
-    function mintRewardTokens(address to, uint256 amount) external {
-        require(rewardDistributors[msg.sender], "Not authorized to distribute rewards");
-        require(totalSupply() + amount <= maxSupply, "Would exceed max supply");
+    /// @notice Mints reward tokens
+    function mintRewardTokens(address to, uint256 amount) 
+        external 
+        whenNotPaused 
+        onlyRole(MINTER_ROLE) 
+    {
+        require(rewardDistributors[msg.sender], "Not authorized");
+        require(totalSupply() + amount <= maxSupply, "Exceeds max supply");
         
         _mint(to, amount);
         
-        // Record reward event
-        string memory reason;
-        if (msg.sender == savingsContract) {
-            reason = "savings_reward";
-        } else if (msg.sender == microcreditContract) {
-            reason = "loan_repayment_reward";
-        } else if (msg.sender == partnersContract) {
-            reason = "healthcare_engagement_reward";
-        }
+        string memory reason = msg.sender == savingsContract ? "savings_reward" :
+                             msg.sender == microcreditContract ? "loan_repayment_reward" :
+                             "healthcare_engagement_reward";
         
         rewardHistory.push(RewardEvent({
             user: to,
@@ -82,70 +84,69 @@ contract HealFiToken is ERC20, Ownable {
             timestamp: block.timestamp
         }));
         
-        // Update reputation score
-        userReputationScore[to] += amount / 100; // Simplified reputation scoring
-        
+        userReputationScore[to] += amount / 100;
         emit RewardTokensMinted(to, amount, reason);
     }
     
-    /**
-     * @dev Add a new reward distributor (governance only)
-     */
-    function addRewardDistributor(address distributor) external onlyOwner {
+    /// @notice Adds reward distributor
+    function addRewardDistributor(address distributor) 
+        external 
+        onlyOwner 
+        whenNotPaused 
+    {
         rewardDistributors[distributor] = true;
     }
     
-    /**
-     * @dev Remove a reward distributor (governance only)
-     */
-    function removeRewardDistributor(address distributor) external onlyOwner {
+    /// @notice Removes reward distributor
+    function removeRewardDistributor(address distributor) 
+        external 
+        onlyOwner 
+        whenNotPaused 
+    {
         rewardDistributors[distributor] = false;
     }
     
-    /**
-     * @dev Redeem tokens for health services
-     */
-    function redeemForService(uint256 amount, string memory service) external {
+    /// @notice Redeems tokens for services
+    function redeemForService(uint256 amount, string memory service) 
+        external 
+        whenNotPaused 
+    {
         require(balanceOf(msg.sender) >= amount, "Insufficient balance");
-        
-        // Burn tokens on redemption
         _burn(msg.sender, amount);
-        
-        // Record usage
         lastTokenUsage[msg.sender] = block.timestamp;
-        
         emit TokensRedeemed(msg.sender, amount, service);
     }
     
-    /**
-     * @dev Get user reputation score
-     */
+    /// @notice Emergency withdrawal during pause
+    function emergencyWithdraw(uint256 amount) 
+        external 
+        whenPaused 
+    {
+        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
+        _transfer(msg.sender, owner(), amount);
+        emit EmergencyWithdrawal(msg.sender, amount);
+    }
+    
+    /// @notice Gets user reputation score
     function getReputationScore(address user) external view returns (uint256) {
         return userReputationScore[user];
     }
     
-    /**
-     * @dev Get reward history for a user
-     */
+    /// @notice Gets user reward history
     function getUserRewardHistory(address user) external view returns (
         uint256[] memory amounts,
         string[] memory reasons,
         uint256[] memory timestamps
     ) {
-        // Count rewards for this user
         uint256 count = 0;
         for (uint256 i = 0; i < rewardHistory.length; i++) {
-            if (rewardHistory[i].user == user) {
-                count++;
-            }
+            if (rewardHistory[i].user == user) count++;
         }
         
-        // Create arrays of appropriate size
         amounts = new uint256[](count);
         reasons = new string[](count);
         timestamps = new uint256[](count);
         
-        // Fill arrays
         uint256 index = 0;
         for (uint256 i = 0; i < rewardHistory.length; i++) {
             if (rewardHistory[i].user == user) {
@@ -155,15 +156,31 @@ contract HealFiToken is ERC20, Ownable {
                 index++;
             }
         }
-        
         return (amounts, reasons, timestamps);
     }
     
-    /**
-     * @dev Governance function to mint additional tokens if needed
-     */
-    function governanceMint(address to, uint256 amount) external onlyOwner {
-        require(totalSupply() + amount <= maxSupply, "Would exceed max supply");
+    /// @notice Governance minting function
+    function governanceMint(address to, uint256 amount) 
+        external 
+        onlyOwner 
+        whenNotPaused 
+    {
+        require(totalSupply() + amount <= maxSupply, "Exceeds max supply");
         _mint(to, amount);
+    }
+    
+    /// @notice Pauses contract
+    function pause() external onlyOwner {
+        _pause();
+    }
+    
+    /// @notice Unpauses contract
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+    
+    /// @notice Upgrade placeholder
+    function upgradeTo(string memory newVersion) external onlyOwner {
+        emit VersionUpgraded(newVersion);
     }
 }

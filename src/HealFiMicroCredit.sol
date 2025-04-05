@@ -4,6 +4,9 @@ pragma solidity ^0.8.0;
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../lib/openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import "../lib/openzeppelin-contracts/contracts/security/Pausable.sol";
+import "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
+import "../lib/chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 interface IHealFiSavings {
     function withdrawForLoan(address token, uint256 amount) external returns (bool);
@@ -18,10 +21,13 @@ interface IHealFiToken {
 }
 
 /**
- * @title HealFiMicrocredit
- * @dev Manages health microloans on the HealFi platform
+ * @title HealFi Microcredit
+ * @notice Manages health microloans
  */
-contract HealFiMicrocredit is Ownable, ReentrancyGuard {
+contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl {
+    bytes32 public constant LOAN_MANAGER_ROLE = keccak256("LOAN_MANAGER_ROLE");
+    string public constant VERSION = "1.0.0";
+    
     address public savingsContract;
     address public partnersContract;
     address public tokenContract;
@@ -30,9 +36,12 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard {
     address public celoEUR;
     address public celoREAL;
     
+    AggregatorV3Interface public eurUsdPriceFeed;
+    AggregatorV3Interface public realUsdPriceFeed;
+    
     uint256 public totalActiveLoanValueUSD;
-    uint256 public minimumSavingsStreak = 3; // Minimum savings streak to be eligible for loans
-    uint256 public loanFeeRate = 100; // 1% fee (in basis points)
+    uint256 public minimumSavingsStreak = 3;
+    uint256 public loanFeeRate = 100; // 1% in basis points
     
     enum LoanStatus { None, Pending, Active, PastDue, Repaid, Defaulted }
     
@@ -45,84 +54,84 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard {
         uint256 startDate;
         uint256 dueDate;
         LoanStatus status;
-        bool isHealthEmergency; // Flag for emergency loans (can have different terms)
-        address partnerHealthProvider; // Associated healthcare provider if applicable
+        bool isHealthEmergency;
+        address partnerHealthProvider;
     }
     
-    // Mapping of user address to their loans
     mapping(address => Loan[]) public userLoans;
-    // Mapping of loan IDs to track all loans
     mapping(uint256 => Loan) public loans;
     uint256 public loanCount;
     
-    // Credit scores for users (determines loan eligibility and limits)
     mapping(address => uint256) public creditScores;
     uint256 public constant BASE_CREDIT_SCORE = 500;
     
-    // Events
     event LoanRequested(uint256 indexed loanId, address indexed borrower, address token, uint256 amount);
     event LoanApproved(uint256 indexed loanId, address indexed borrower);
     event LoanRepayment(uint256 indexed loanId, address indexed borrower, uint256 amount);
     event LoanFullyRepaid(uint256 indexed loanId, address indexed borrower);
     event LoanDefaulted(uint256 indexed loanId, address indexed borrower);
     event ContractsSet(address savings, address partners, address token);
+    event EmergencyLoanCancellation(uint256 indexed loanId);
+    event VersionUpgraded(string newVersion);
     
-    /**
-     * @dev Set addresses of related contracts
-     */
-    function setContracts(address _savingsContract, address _partnersContract, address _tokenContract) external onlyOwner {
+    constructor(address _eurUsdFeed, address _realUsdFeed) {
+        eurUsdPriceFeed = AggregatorV3Interface(_eurUsdFeed);
+        realUsdPriceFeed = AggregatorV3Interface(_realUsdFeed);
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(LOAN_MANAGER_ROLE, msg.sender);
+    }
+    
+    /// @notice Sets contract addresses
+    function setContracts(address _savingsContract, address _partnersContract, address _tokenContract) 
+        external 
+        onlyOwner 
+        whenNotPaused 
+    {
         savingsContract = _savingsContract;
         partnersContract = _partnersContract;
         tokenContract = _tokenContract;
         emit ContractsSet(_savingsContract, _partnersContract, _tokenContract);
     }
     
-    /**
-     * @dev Update supported stablecoins
-     */
-    function updateSupportedStablecoins(address _celoUSD, address _celoEUR, address _celoREAL) external onlyOwner {
+    /// @notice Updates stablecoins
+    function updateSupportedStablecoins(address _celoUSD, address _celoEUR, address _celoREAL) 
+        external 
+        onlyOwner 
+        whenNotPaused 
+    {
         celoUSD = _celoUSD;
         celoEUR = _celoEUR;
         celoREAL = _celoREAL;
     }
     
-    /**
-     * @dev Initialize credit score for a new user
-     */
+    /// @notice Initializes credit score
     function initializeCreditScore(address user) internal {
         if (creditScores[user] == 0) {
             creditScores[user] = BASE_CREDIT_SCORE;
         }
     }
     
-    /**
-     * @dev Request a health microloan
-     */
+    /// @notice Requests a loan
     function requestLoan(
         address token, 
         uint256 amount, 
         uint256 durationDays,
         bool isEmergency,
         address healthProvider
-    ) external nonReentrant returns (uint256) {
+    ) external nonReentrant whenNotPaused returns (uint256) {
         require(token == celoUSD || token == celoEUR || token == celoREAL, "Unsupported token");
-        require(amount > 0, "Amount must be greater than 0");
+        require(amount > 0, "Amount must be > 0");
         require(durationDays > 0 && durationDays <= 365, "Invalid duration");
         
-        // Check eligibility through savings account
         (,,,uint256 savingsStreak, bool isActive) = IHealFiSavings(savingsContract).getAccountInfo(msg.sender);
-        require(isActive, "No active savings account");
-        
-        // Emergency loans might have relaxed requirements
+        require(isActive, "No active account");
         if (!isEmergency) {
             require(savingsStreak >= minimumSavingsStreak, "Insufficient savings history");
         }
         
-        // Calculate loan fees
         uint256 fee = (amount * loanFeeRate) / 10000;
-        
-        // Create new loan
         uint256 loanId = loanCount++;
+        
         Loan memory newLoan = Loan({
             borrower: msg.sender,
             token: token,
@@ -140,144 +149,118 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard {
         userLoans[msg.sender].push(newLoan);
         
         emit LoanRequested(loanId, msg.sender, token, amount);
-        
-        // If it's an emergency, we might auto-approve (governed by DAO)
-        if (isEmergency) {
-            approveLoan(loanId);
-        }
+        if (isEmergency) approveLoan(loanId);
         
         return loanId;
     }
     
-    /**
-     * @dev Approve a pending loan (called by DAO or governance)
-     */
-    function approveLoan(uint256 loanId) public onlyOwner {
-        require(loans[loanId].status == LoanStatus.Pending, "Loan is not pending");
+    /// @notice Approves loan
+    function approveLoan(uint256 loanId) 
+        public 
+        onlyRole(LOAN_MANAGER_ROLE) 
+        whenNotPaused 
+    {
+        require(loans[loanId].status == LoanStatus.Pending, "Not pending");
         
         Loan storage loan = loans[loanId];
-        
-        // Check if savings pool has sufficient funds
         bool fundingSuccess = IHealFiSavings(savingsContract).withdrawForLoan(loan.token, loan.amount);
-        require(fundingSuccess, "Insufficient funds in savings pool");
+        require(fundingSuccess, "Insufficient funds");
         
-        // Update loan status
         loan.status = LoanStatus.Active;
-        
-        // Transfer funds to borrower (or directly to healthcare provider if specified)
         address recipient = loan.partnerHealthProvider != address(0) ? loan.partnerHealthProvider : loan.borrower;
         IERC20(loan.token).transfer(recipient, loan.amount);
         
-        // Update total active loans
-        if (loan.token == celoUSD) {
-            totalActiveLoanValueUSD += loan.amount;
-        } else if (loan.token == celoEUR) {
-            totalActiveLoanValueUSD += (loan.amount * 110) / 100; // Simplified conversion
-        } else if (loan.token == celoREAL) {
-            totalActiveLoanValueUSD += (loan.amount * 20) / 100; // Simplified conversion
-        }
-        
+        totalActiveLoanValueUSD += convertToUSD(loan.amount, 
+            loan.token == celoEUR ? eurUsdPriceFeed : 
+            loan.token == celoREAL ? realUsdPriceFeed : 
+            AggregatorV3Interface(address(0)));
+            
         emit LoanApproved(loanId, loan.borrower);
     }
     
-    /**
-     * @dev Make a repayment on an active loan
-     */
-    function repayLoan(uint256 loanId, uint256 amount) external nonReentrant {
-        require(loans[loanId].borrower == msg.sender, "Not the borrower");
-        require(loans[loanId].status == LoanStatus.Active || loans[loanId].status == LoanStatus.PastDue, "Loan not active");
-        require(amount > 0, "Amount must be greater than 0");
+    /// @notice Repays loan
+    function repayLoan(uint256 loanId, uint256 amount) 
+        external 
+        nonReentrant 
+        whenNotPaused 
+    {
+        require(loans[loanId].borrower == msg.sender, "Not borrower");
+        require(loans[loanId].status == LoanStatus.Active || loans[loanId].status == LoanStatus.PastDue, "Not active");
+        require(amount > 0, "Amount must be > 0");
         
         Loan storage loan = loans[loanId];
         uint256 remainingAmount = loan.amount + loan.feeAmount - loan.totalRepaid;
+        if (amount > remainingAmount) amount = remainingAmount;
         
-        // Cap repayment at the remaining debt
-        if (amount > remainingAmount) {
-            amount = remainingAmount;
-        }
-        
-        // Transfer tokens from borrower to this contract
         IERC20(loan.token).transferFrom(msg.sender, address(this), amount);
-        
-        // Send repayment to savings pool
         IERC20(loan.token).approve(savingsContract, amount);
         IHealFiSavings(savingsContract).depositLoanRepayment(loan.token, amount);
         
-        // Update loan state
         loan.totalRepaid += amount;
-        
         emit LoanRepayment(loanId, msg.sender, amount);
         
-        // Check if loan is fully repaid
         if (loan.totalRepaid >= loan.amount + loan.feeAmount) {
             loan.status = LoanStatus.Repaid;
-            
-            // Update total active loans
-            if (loan.token == celoUSD) {
-                totalActiveLoanValueUSD -= loan.amount;
-            } else if (loan.token == celoEUR) {
-                totalActiveLoanValueUSD -= (loan.amount * 110) / 100;
-            } else if (loan.token == celoREAL) {
-                totalActiveLoanValueUSD -= (loan.amount * 20) / 100;
-            }
-            
-            // Reward borrower with tokens for successful repayment
+            totalActiveLoanValueUSD -= convertToUSD(loan.amount, 
+                loan.token == celoEUR ? eurUsdPriceFeed : 
+                loan.token == celoREAL ? realUsdPriceFeed : 
+                AggregatorV3Interface(address(0)));
+                
             IHealFiToken(tokenContract).mintRewardTokens(msg.sender, loan.amount / 10);
-            
-            // Improve credit score for timely repayment
-            if (block.timestamp <= loan.dueDate) {
-                creditScores[msg.sender] += 10;
-            }
+            if (block.timestamp <= loan.dueDate) creditScores[msg.sender] += 10;
             
             emit LoanFullyRepaid(loanId, msg.sender);
         }
     }
     
-    /**
-     * @dev Mark loans as past due (called by a maintenance function)
-     */
-    function checkLoanStatuses() external {
+    /// @notice Checks loan statuses
+    function checkLoanStatuses() 
+        external 
+        onlyRole(LOAN_MANAGER_ROLE) 
+        whenNotPaused 
+    {
         for (uint256 i = 0; i < loanCount; i++) {
             Loan storage loan = loans[i];
             if (loan.status == LoanStatus.Active && block.timestamp > loan.dueDate) {
                 loan.status = LoanStatus.PastDue;
-                
-                // Decrease credit score for late payment
-                if (creditScores[loan.borrower] > 10) {
-                    creditScores[loan.borrower] -= 10;
-                }
+                if (creditScores[loan.borrower] > 10) creditScores[loan.borrower] -= 10;
             }
             
-            // Mark as defaulted if significantly overdue (e.g., 30 days)
-            if (loan.status == LoanStatus.PastDue && 
-                block.timestamp > loan.dueDate + 30 days) {
+            if (loan.status == LoanStatus.PastDue && block.timestamp > loan.dueDate + 30 days) {
                 loan.status = LoanStatus.Defaulted;
-                
-                // Significant credit score penalty for default
-                if (creditScores[loan.borrower] > 100) {
-                    creditScores[loan.borrower] -= 100;
-                } else {
-                    creditScores[loan.borrower] = 0;
-                }
-                
+                creditScores[loan.borrower] = creditScores[loan.borrower] > 100 ? 
+                    creditScores[loan.borrower] - 100 : 0;
                 emit LoanDefaulted(i, loan.borrower);
             }
         }
     }
     
-    /**
-     * @dev Get loan details
-     */
-    function getLoanDetails(uint256 loanId) external view returns (
-        address borrower,
-        address token,
-        uint256 amount,
-        uint256 feeAmount,
-        uint256 totalRepaid,
-        uint256 startDate,
-        uint256 dueDate,
-        LoanStatus status
-    ) {
+    /// @notice Cancels loan in emergency
+    function emergencyCancelLoan(uint256 loanId) 
+        external 
+        onlyRole(LOAN_MANAGER_ROLE) 
+        whenPaused 
+    {
+        require(loans[loanId].status == LoanStatus.Pending, "Not pending");
+        loans[loanId].status = LoanStatus.None;
+        emit EmergencyLoanCancellation(loanId);
+    }
+    
+    /// @notice Gets loan details
+    function getLoanDetails(uint256 loanId) 
+        external 
+        view 
+        returns (
+            address borrower,
+            address token,
+            uint256 amount,
+            uint256 feeAmount,
+            uint256 totalRepaid,
+            uint256 startDate,
+            uint256 dueDate,
+            LoanStatus status
+        ) 
+    {
         Loan storage loan = loans[loanId];
         return (
             loan.borrower,
@@ -291,63 +274,87 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard {
         );
     }
     
-    /**
-     * @dev Get all loans for a user
-     */
-    function getUserLoans(address user) external view returns (uint256[] memory) {
+    /// @notice Gets user loans
+    function getUserLoans(address user) 
+        external 
+        view 
+        returns (uint256[] memory) 
+    {
         uint256 userLoanCount = 0;
-        
         for (uint256 i = 0; i < loanCount; i++) {
-            if (loans[i].borrower == user) {
-                userLoanCount++;
-            }
+            if (loans[i].borrower == user) userLoanCount++;
         }
         
         uint256[] memory result = new uint256[](userLoanCount);
         uint256 index = 0;
-        
         for (uint256 i = 0; i < loanCount; i++) {
             if (loans[i].borrower == user) {
                 result[index] = i;
                 index++;
             }
         }
-        
         return result;
     }
     
-    /**
-     * @dev Calculate maximum loan amount for a user based on their credit score and savings
-     */
-    function getMaxLoanAmount(address user, address token) external view returns (uint256) {
+    /// @notice Calculates max loan amount
+    function getMaxLoanAmount(address user, address token) 
+        external 
+        view 
+        returns (uint256) 
+    {
         (uint256 balanceUSD, uint256 balanceEUR, uint256 balanceREAL, uint256 savingsStreak, bool isActive) = 
             IHealFiSavings(savingsContract).getAccountInfo(user);
             
-        if (!isActive || savingsStreak < minimumSavingsStreak) {
-            return 0;
-        }
+        if (!isActive || savingsStreak < minimumSavingsStreak) return 0;
         
-        // Convert all balances to USD for calculation
         uint256 totalBalanceUSD = balanceUSD + 
-                                 (balanceEUR * 110) / 100 + 
-                                 (balanceREAL * 20) / 100;
+                                convertToUSD(balanceEUR, eurUsdPriceFeed) + 
+                                convertToUSD(balanceREAL, realUsdPriceFeed);
         
-        // Base amount is 3x their savings
         uint256 baseAmount = totalBalanceUSD * 3;
+        uint256 creditMultiplier = creditScores[user] / 100;
+        uint256 maxUSD = baseAmount * creditMultiplier / 10;
         
-        // Adjust based on credit score (simplified)
-        uint256 creditMultiplier = creditScores[user] / 100;  // 500 score = 5x multiplier
-        uint256 maxUSD = baseAmount * creditMultiplier / 10;  // Limit growth
-        
-        // Convert back to requested token
-        if (token == celoUSD) {
-            return maxUSD;
-        } else if (token == celoEUR) {
-            return (maxUSD * 100) / 110;  // USD to EUR
-        } else if (token == celoREAL) {
-            return (maxUSD * 100) / 20;   // USD to REAL
-        }
-        
+        if (token == celoUSD) return maxUSD;
+        else if (token == celoEUR) return convertFromUSD(maxUSD, eurUsdPriceFeed);
+        else if (token == celoREAL) return convertFromUSD(maxUSD, realUsdPriceFeed);
         return 0;
+    }
+    
+    /// @notice Converts to USD
+    function convertToUSD(uint256 amount, AggregatorV3Interface priceFeed) 
+        internal 
+        view 
+        returns (uint256) 
+    {
+        if (address(priceFeed) == address(0)) return amount;
+        (,int256 price,,,) = priceFeed.latestRoundData();
+        return (amount * uint256(price)) / 10**8;
+    }
+    
+    /// @notice Converts from USD
+    function convertFromUSD(uint256 usdAmount, AggregatorV3Interface priceFeed) 
+        internal 
+        view 
+        returns (uint256) 
+    {
+        if (address(priceFeed) == address(0)) return usdAmount;
+        (,int256 price,,,) = priceFeed.latestRoundData();
+        return (usdAmount * 10**8) / uint256(price);
+    }
+    
+    /// @notice Pauses contract
+    function pause() external onlyRole(LOAN_MANAGER_ROLE) {
+        _pause();
+    }
+    
+    /// @notice Unpauses contract
+    function unpause() external onlyRole(LOAN_MANAGER_ROLE) {
+        _unpause();
+    }
+    
+    /// @notice Upgrade placeholder
+    function upgradeTo(string memory newVersion) external onlyRole(LOAN_MANAGER_ROLE) {
+        emit VersionUpgraded(newVersion);
     }
 }

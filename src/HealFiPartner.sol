@@ -3,18 +3,27 @@ pragma solidity ^0.8.0;
 
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "../lib/openzeppelin-contracts/contracts/security/Pausable.sol";
+import "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
+import "../lib/chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 /**
- * @title HealFiPartners
- * @dev Manages healthcare partnerships on the HealFi platform
+ * @title HealFi Partners
+ * @notice Manages healthcare partnerships
  */
-contract HealFiPartners is Ownable {
+contract HealFiPartners is Ownable, Pausable, AccessControl {
+    bytes32 public constant PARTNER_MANAGER_ROLE = keccak256("PARTNER_MANAGER_ROLE");
+    string public constant VERSION = "1.0.0";
+    
     address public microcreditContract;
     address public tokenContract;
     
     address public celoUSD;
     address public celoEUR;
     address public celoREAL;
+    
+    AggregatorV3Interface public eurUsdPriceFeed;
+    AggregatorV3Interface public realUsdPriceFeed;
     
     enum PartnerType { Clinic, Pharmacy, Hospital, Laboratory }
     
@@ -23,17 +32,15 @@ contract HealFiPartners is Ownable {
         string location;
         address paymentAddress;
         PartnerType partnerType;
-        uint256 discountPercentage; // Discount offered to HealFi users (in basis points)
+        uint256 discountPercentage;
         bool isActive;
         uint256 totalPatientsServed;
         uint256 registrationDate;
     }
     
-    // Mapping of partner address to partner details
     mapping(address => HealthcarePartner) public partners;
     address[] public partnerAddresses;
     
-    // Service records for patients
     struct ServiceRecord {
         address patient;
         address partner;
@@ -43,62 +50,66 @@ contract HealFiPartners is Ownable {
         string serviceDescription;
     }
     
-    // Mapping patient address to their service history
     mapping(address => ServiceRecord[]) public patientServiceHistory;
-    // Global service record count
     uint256 public serviceRecordCount;
-    // Mapping service record ID to service record
     mapping(uint256 => ServiceRecord) public serviceRecords;
     
-    // Partner verification status
     mapping(address => bool) public verifiedPartners;
+    uint256 public platformFeeRate = 100; // 1% in basis points
     
-    // Platform fee (in basis points)
-    uint256 public platformFeeRate = 100; // 1% fee
-    
-    // Events
     event PartnerRegistered(address indexed partner, string name, PartnerType partnerType);
     event PartnerVerified(address indexed partner);
     event PartnerDeactivated(address indexed partner);
     event ServiceProvided(uint256 indexed recordId, address indexed patient, address indexed partner, uint256 amount);
     event DiscountApplied(address indexed patient, address indexed partner, uint256 discountAmount);
     event ContractsSet(address microcredit, address token);
+    event EmergencyFeeWithdrawal(address token, uint256 amount);
+    event VersionUpgraded(string newVersion);
     
     modifier onlyVerifiedPartner() {
-        require(verifiedPartners[msg.sender], "Not a verified partner");
+        require(verifiedPartners[msg.sender], "Not verified");
         _;
     }
     
-    /**
-     * @dev Set addresses of related contracts
-     */
-    function setContracts(address _microcreditContract, address _tokenContract) external onlyOwner {
+    constructor(address _eurUsdFeed, address _realUsdFeed) {
+        eurUsdPriceFeed = AggregatorV3Interface(_eurUsdFeed);
+        realUsdPriceFeed = AggregatorV3Interface(_realUsdFeed);
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(PARTNER_MANAGER_ROLE, msg.sender);
+    }
+    
+    /// @notice Sets contract addresses
+    function setContracts(address _microcreditContract, address _tokenContract) 
+        external 
+        onlyOwner 
+        whenNotPaused 
+    {
         microcreditContract = _microcreditContract;
         tokenContract = _tokenContract;
         emit ContractsSet(_microcreditContract, _tokenContract);
     }
     
-    /**
-     * @dev Update supported stablecoins
-     */
-    function updateSupportedStablecoins(address _celoUSD, address _celoEUR, address _celoREAL) external onlyOwner {
+    /// @notice Updates stablecoins
+    function updateSupportedStablecoins(address _celoUSD, address _celoEUR, address _celoREAL) 
+        external 
+        onlyOwner 
+        whenNotPaused 
+    {
         celoUSD = _celoUSD;
         celoEUR = _celoEUR;
         celoREAL = _celoREAL;
     }
     
-    /**
-     * @dev Register as a healthcare partner
-     */
+    /// @notice Registers partner
     function registerPartner(
         string memory name,
         string memory location,
         address paymentAddress,
         PartnerType partnerType,
         uint256 discountPercentage
-    ) external {
+    ) external whenNotPaused {
         require(!partners[msg.sender].isActive, "Already registered");
-        require(discountPercentage <= 5000, "Discount too high"); // Max 50% discount
+        require(discountPercentage <= 5000, "Discount too high");
         
         HealthcarePartner memory newPartner = HealthcarePartner({
             name: name,
@@ -113,43 +124,43 @@ contract HealFiPartners is Ownable {
         
         partners[msg.sender] = newPartner;
         partnerAddresses.push(msg.sender);
-        
         emit PartnerRegistered(msg.sender, name, partnerType);
     }
     
-    /**
-     * @dev Verify a healthcare partner (called by governance)
-     */
-    function verifyPartner(address partner) external onlyOwner {
-        require(partners[partner].isActive, "Partner not registered or inactive");
+    /// @notice Verifies partner
+    function verifyPartner(address partner) 
+        external 
+        onlyRole(PARTNER_MANAGER_ROLE) 
+        whenNotPaused 
+    {
+        require(partners[partner].isActive, "Not registered");
         verifiedPartners[partner] = true;
         emit PartnerVerified(partner);
     }
     
-    /**
-     * @dev Deactivate a healthcare partner
-     */
-    function deactivatePartner(address partner) external onlyOwner {
-        require(partners[partner].isActive, "Partner not active");
+    /// @notice Deactivates partner
+    function deactivatePartner(address partner) 
+        external 
+        onlyRole(PARTNER_MANAGER_ROLE) 
+        whenNotPaused 
+    {
+        require(partners[partner].isActive, "Not active");
         partners[partner].isActive = false;
         verifiedPartners[partner] = false;
         emit PartnerDeactivated(partner);
     }
     
-    /**
-     * @dev Record a healthcare service provided to a patient
-     */
+    /// @notice Records service
     function recordService(
         address patient,
         uint256 amount,
         address token,
         string memory serviceDescription
-    ) external onlyVerifiedPartner {
+    ) external onlyVerifiedPartner whenNotPaused {
         require(token == celoUSD || token == celoEUR || token == celoREAL, "Unsupported token");
-        require(amount > 0, "Amount must be greater than 0");
+        require(amount > 0, "Amount must be > 0");
         
         uint256 recordId = serviceRecordCount++;
-        
         ServiceRecord memory newRecord = ServiceRecord({
             patient: patient,
             partner: msg.sender,
@@ -162,60 +173,52 @@ contract HealFiPartners is Ownable {
         serviceRecords[recordId] = newRecord;
         patientServiceHistory[patient].push(newRecord);
         partners[msg.sender].totalPatientsServed++;
-        
         emit ServiceProvided(recordId, patient, msg.sender, amount);
     }
     
-    /**
-     * @dev Apply a discount for HealFi users
-     */
+    /// @notice Applies discount
     function applyDiscount(address patient, uint256 fullAmount, address token) 
         external 
         onlyVerifiedPartner 
-        returns (uint256 discountedAmount) 
+        whenNotPaused 
+        returns (uint256) 
     {
-        require(partners[msg.sender].isActive, "Partner not active");
-        
-        uint256 discountPercentage = partners[msg.sender].discountPercentage;
-        uint256 discountAmount = (fullAmount * discountPercentage) / 10000;
-        discountedAmount = fullAmount - discountAmount;
-        
+        require(partners[msg.sender].isActive, "Not active");
+        uint256 discountAmount = (fullAmount * partners[msg.sender].discountPercentage) / 10000;
+        uint256 discountedAmount = fullAmount - discountAmount;
         emit DiscountApplied(patient, msg.sender, discountAmount);
         return discountedAmount;
     }
     
-    /**
-     * @dev Process payment from patient to healthcare provider
-     */
-    function processPayment(address patient, uint256 amount, address token) external {
-        require(partners[msg.sender].isActive, "Partner not active");
+    /// @notice Processes payment
+    function processPayment(address patient, uint256 amount, address token) 
+        external 
+        whenNotPaused 
+    {
+        require(partners[msg.sender].isActive, "Not active");
         require(token == celoUSD || token == celoEUR || token == celoREAL, "Unsupported token");
         
-        // Calculate platform fee
         uint256 fee = (amount * platformFeeRate) / 10000;
         uint256 partnerAmount = amount - fee;
         
-        // Transfer tokens from patient to this contract
         IERC20(token).transferFrom(patient, address(this), amount);
-        
-        // Transfer partner amount to partner's payment address
         IERC20(token).transfer(partners[msg.sender].paymentAddress, partnerAmount);
-        
-        // Fee remains in contract (can be collected by governance)
     }
     
-    /**
-     * @dev Get partner details
-     */
-    function getPartnerDetails(address partner) external view returns (
-        string memory name,
-        string memory location,
-        address paymentAddress,
-        PartnerType partnerType,
-        uint256 discountPercentage,
-        bool isActive,
-        uint256 totalPatientsServed
-    ) {
+    /// @notice Gets partner details
+    function getPartnerDetails(address partner) 
+        external 
+        view 
+        returns (
+            string memory name,
+            string memory location,
+            address paymentAddress,
+            PartnerType partnerType,
+            uint256 discountPercentage,
+            bool isActive,
+            uint256 totalPatientsServed
+        ) 
+    {
         HealthcarePartner storage p = partners[partner];
         return (
             p.name,
@@ -228,35 +231,65 @@ contract HealFiPartners is Ownable {
         );
     }
     
-    /**
-     * @dev Get service history for a patient
-     */
-    function getPatientServiceHistory(address patient) external view returns (ServiceRecord[] memory) {
+    /// @notice Gets patient service history
+    function getPatientServiceHistory(address patient) 
+        external 
+        view 
+        returns (ServiceRecord[] memory) 
+    {
         return patientServiceHistory[patient];
     }
     
-    /**
-     * @dev Get all partners
-     */
+    /// @notice Gets all partners
     function getAllPartners() external view returns (address[] memory) {
         return partnerAddresses;
     }
     
-    /**
-     * @dev Set platform fee rate (governance only)
-     */
-    function setPlatformFeeRate(uint256 newRate) external onlyOwner {
-        require(newRate <= 1000, "Fee too high"); // Max 10%
+    /// @notice Sets platform fee rate
+    function setPlatformFeeRate(uint256 newRate) 
+        external 
+        onlyRole(PARTNER_MANAGER_ROLE) 
+        whenNotPaused 
+    {
+        require(newRate <= 1000, "Fee too high");
         platformFeeRate = newRate;
     }
     
-    /**
-     * @dev Withdraw platform fees (governance only)
-     */
-    function withdrawFees(address token, address recipient, uint256 amount) external onlyOwner {
+    /// @notice Withdraws fees
+    function withdrawFees(address token, address recipient, uint256 amount) 
+        external 
+        onlyRole(PARTNER_MANAGER_ROLE) 
+        whenNotPaused 
+    {
         require(token == celoUSD || token == celoEUR || token == celoREAL, "Unsupported token");
         uint256 balance = IERC20(token).balanceOf(address(this));
         require(amount <= balance, "Insufficient balance");
         IERC20(token).transfer(recipient, amount);
+    }
+    
+    /// @notice Emergency fee withdrawal
+    function emergencyFeeWithdrawal(address token, address recipient) 
+        external 
+        onlyRole(PARTNER_MANAGER_ROLE) 
+        whenPaused 
+    {
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        IERC20(token).transfer(recipient, balance);
+        emit EmergencyFeeWithdrawal(token, balance);
+    }
+    
+    /// @notice Pauses contract
+    function pause() external onlyRole(PARTNER_MANAGER_ROLE) {
+        _pause();
+    }
+    
+    /// @notice Unpauses contract
+    function unpause() external onlyRole(PARTNER_MANAGER_ROLE) {
+        _unpause();
+    }
+    
+    /// @notice Upgrade placeholder
+    function upgradeTo(string memory newVersion) external onlyRole(PARTNER_MANAGER_ROLE) {
+        emit VersionUpgraded(newVersion);
     }
 }
