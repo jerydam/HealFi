@@ -6,10 +6,6 @@ import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../lib/openzeppelin-contracts/contracts/security/Pausable.sol";
 import "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 
-/**
- * @title HealFi Token
- * @notice ERC20 token for the HealFi ecosystem
- */
 contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     string public constant VERSION = "1.0.0";
@@ -45,7 +41,6 @@ contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
         _setupRole(MINTER_ROLE, msg.sender);
     }
     
-    /// @notice Sets related contract addresses
     function setContracts(address _savingsContract, address _microcreditContract, address _partnersContract) 
         external 
         onlyOwner 
@@ -62,7 +57,6 @@ contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
         emit ContractsSet(_savingsContract, _microcreditContract, _partnersContract);
     }
     
-    /// @notice Mints reward tokens
     function mintRewardTokens(address to, uint256 amount) 
         external 
         whenNotPaused 
@@ -88,7 +82,6 @@ contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
         emit RewardTokensMinted(to, amount, reason);
     }
     
-    /// @notice Adds reward distributor
     function addRewardDistributor(address distributor) 
         external 
         onlyOwner 
@@ -97,7 +90,6 @@ contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
         rewardDistributors[distributor] = true;
     }
     
-    /// @notice Removes reward distributor
     function removeRewardDistributor(address distributor) 
         external 
         onlyOwner 
@@ -106,7 +98,6 @@ contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
         rewardDistributors[distributor] = false;
     }
     
-    /// @notice Redeems tokens for services
     function redeemForService(uint256 amount, string memory service) 
         external 
         whenNotPaused 
@@ -117,7 +108,6 @@ contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
         emit TokensRedeemed(msg.sender, amount, service);
     }
     
-    /// @notice Emergency withdrawal during pause
     function emergencyWithdraw(uint256 amount) 
         external 
         whenPaused 
@@ -127,12 +117,10 @@ contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
         emit EmergencyWithdrawal(msg.sender, amount);
     }
     
-    /// @notice Gets user reputation score
     function getReputationScore(address user) external view returns (uint256) {
         return userReputationScore[user];
     }
     
-    /// @notice Gets user reward history
     function getUserRewardHistory(address user) external view returns (
         uint256[] memory amounts,
         string[] memory reasons,
@@ -159,7 +147,6 @@ contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
         return (amounts, reasons, timestamps);
     }
     
-    /// @notice Governance minting function
     function governanceMint(address to, uint256 amount) 
         external 
         onlyOwner 
@@ -169,17 +156,14 @@ contract HealFiToken is ERC20, Ownable, Pausable, AccessControl {
         _mint(to, amount);
     }
     
-    /// @notice Pauses contract
     function pause() external onlyOwner {
         _pause();
     }
     
-    /// @notice Unpauses contract
     function unpause() external onlyOwner {
         _unpause();
     }
     
-    /// @notice Upgrade placeholder
     function upgradeTo(string memory newVersion) external onlyOwner {
         emit VersionUpgraded(newVersion);
     }

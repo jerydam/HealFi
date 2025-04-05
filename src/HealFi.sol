@@ -10,11 +10,6 @@ import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../lib/openzeppelin-contracts/contracts/security/Pausable.sol";
 import "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 
-/**
- * @title HealFi Main Contract
- * @notice Central contract integrating all HealFi components
- * @dev Inherits from Ownable, Pausable, and AccessControl for security and control
- */
 contract HealFi is Ownable, Pausable, AccessControl {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     string public constant VERSION = "1.0.0";
@@ -42,7 +37,6 @@ contract HealFi is Ownable, Pausable, AccessControl {
         _setupRole(ADMIN_ROLE, msg.sender);
     }
     
-    /// @notice Sets up all component contracts
     function setupContracts(
         address _savingsContract,
         address _microcreditContract,
@@ -65,7 +59,6 @@ contract HealFi is Ownable, Pausable, AccessControl {
         emit ContractSetup(_savingsContract, _microcreditContract, _partnersContract, _tokenContract, _governanceContract);
     }
     
-    /// @notice Updates supported stablecoins
     function updateStablecoins(address _celoUSD, address _celoEUR, address _celoREAL) 
         external 
         onlyRole(ADMIN_ROLE) 
@@ -84,7 +77,6 @@ contract HealFi is Ownable, Pausable, AccessControl {
         partnersContract.updateSupportedStablecoins(_celoUSD, _celoEUR, _celoREAL);
     }
     
-    /// @notice Transfers system control to new governance
     function transferSystemControl(address newGovernance) 
         external 
         onlyRole(ADMIN_ROLE) 
@@ -98,28 +90,23 @@ contract HealFi is Ownable, Pausable, AccessControl {
         transferOwnership(newGovernance);
     }
     
-    /// @notice Pauses all contract operations
     function pause() external onlyRole(ADMIN_ROLE) {
         _pause();
     }
     
-    /// @notice Resumes contract operations
     function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
     }
     
-    /// @notice Initiates emergency shutdown
     function emergencyShutdown() external onlyRole(ADMIN_ROLE) {
         _pause();
         emit EmergencyShutdown(msg.sender);
     }
     
-    /// @notice Adds new admin
     function addAdmin(address newAdmin) external onlyRole(DEFAULT_ADMIN_ROLE) {
         grantRole(ADMIN_ROLE, newAdmin);
     }
     
-    /// @notice Placeholder for contract upgrade (to be used with proxy)
     function upgradeTo(string memory newVersion) external onlyRole(ADMIN_ROLE) {
         emit VersionUpgraded(newVersion);
     }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -6,8 +6,8 @@ import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../lib/openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "../lib/openzeppelin-contracts/contracts/security/Pausable.sol";
 import "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
-import "../lib/chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-
+import "../lib/chainlink-brownie-contracts/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "./interface.sol";
 interface IHealFiSavings {
     function withdrawForLoan(address token, uint256 amount) external returns (bool);
     function depositLoanRepayment(address token, uint256 amount) external;
@@ -16,14 +16,7 @@ interface IHealFiSavings {
         uint256 savingsStreak, bool isActive);
 }
 
-interface IHealFiToken {
-    function mintRewardTokens(address to, uint256 amount) external;
-}
 
-/**
- * @title HealFi Microcredit
- * @notice Manages health microloans
- */
 contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl {
     bytes32 public constant LOAN_MANAGER_ROLE = keccak256("LOAN_MANAGER_ROLE");
     string public constant VERSION = "1.0.0";
@@ -72,6 +65,7 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
     event LoanDefaulted(uint256 indexed loanId, address indexed borrower);
     event ContractsSet(address savings, address partners, address token);
     event EmergencyLoanCancellation(uint256 indexed loanId);
+    event TermsUpdated(uint256 minimumSavingsStreak, uint256 loanFeeRate);
     event VersionUpgraded(string newVersion);
     
     constructor(address _eurUsdFeed, address _realUsdFeed) {
@@ -81,7 +75,6 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         _setupRole(LOAN_MANAGER_ROLE, msg.sender);
     }
     
-    /// @notice Sets contract addresses
     function setContracts(address _savingsContract, address _partnersContract, address _tokenContract) 
         external 
         onlyOwner 
@@ -93,7 +86,6 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         emit ContractsSet(_savingsContract, _partnersContract, _tokenContract);
     }
     
-    /// @notice Updates stablecoins
     function updateSupportedStablecoins(address _celoUSD, address _celoEUR, address _celoREAL) 
         external 
         onlyOwner 
@@ -104,14 +96,12 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         celoREAL = _celoREAL;
     }
     
-    /// @notice Initializes credit score
     function initializeCreditScore(address user) internal {
         if (creditScores[user] == 0) {
             creditScores[user] = BASE_CREDIT_SCORE;
         }
     }
     
-    /// @notice Requests a loan
     function requestLoan(
         address token, 
         uint256 amount, 
@@ -154,7 +144,6 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         return loanId;
     }
     
-    /// @notice Approves loan
     function approveLoan(uint256 loanId) 
         public 
         onlyRole(LOAN_MANAGER_ROLE) 
@@ -178,7 +167,6 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         emit LoanApproved(loanId, loan.borrower);
     }
     
-    /// @notice Repays loan
     function repayLoan(uint256 loanId, uint256 amount) 
         external 
         nonReentrant 
@@ -213,7 +201,6 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         }
     }
     
-    /// @notice Checks loan statuses
     function checkLoanStatuses() 
         external 
         onlyRole(LOAN_MANAGER_ROLE) 
@@ -235,7 +222,6 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         }
     }
     
-    /// @notice Cancels loan in emergency
     function emergencyCancelLoan(uint256 loanId) 
         external 
         onlyRole(LOAN_MANAGER_ROLE) 
@@ -246,7 +232,17 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         emit EmergencyLoanCancellation(loanId);
     }
     
-    /// @notice Gets loan details
+    function updateTerms(uint256 _minimumSavingsStreak, uint256 _loanFeeRate) 
+        external 
+        onlyRole(LOAN_MANAGER_ROLE) 
+        whenNotPaused 
+    {
+        require(_loanFeeRate <= 1000, "Fee rate too high"); // Cap at 10%
+        minimumSavingsStreak = _minimumSavingsStreak;
+        loanFeeRate = _loanFeeRate;
+        emit TermsUpdated(_minimumSavingsStreak, _loanFeeRate);
+    }
+    
     function getLoanDetails(uint256 loanId) 
         external 
         view 
@@ -274,7 +270,6 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         );
     }
     
-    /// @notice Gets user loans
     function getUserLoans(address user) 
         external 
         view 
@@ -296,7 +291,6 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         return result;
     }
     
-    /// @notice Calculates max loan amount
     function getMaxLoanAmount(address user, address token) 
         external 
         view 
@@ -321,7 +315,6 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         return 0;
     }
     
-    /// @notice Converts to USD
     function convertToUSD(uint256 amount, AggregatorV3Interface priceFeed) 
         internal 
         view 
@@ -332,7 +325,6 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         return (amount * uint256(price)) / 10**8;
     }
     
-    /// @notice Converts from USD
     function convertFromUSD(uint256 usdAmount, AggregatorV3Interface priceFeed) 
         internal 
         view 
@@ -343,17 +335,14 @@ contract HealFiMicrocredit is Ownable, ReentrancyGuard, Pausable, AccessControl 
         return (usdAmount * 10**8) / uint256(price);
     }
     
-    /// @notice Pauses contract
     function pause() external onlyRole(LOAN_MANAGER_ROLE) {
         _pause();
     }
     
-    /// @notice Unpauses contract
     function unpause() external onlyRole(LOAN_MANAGER_ROLE) {
         _unpause();
     }
     
-    /// @notice Upgrade placeholder
     function upgradeTo(string memory newVersion) external onlyRole(LOAN_MANAGER_ROLE) {
         emit VersionUpgraded(newVersion);
     }

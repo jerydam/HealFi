@@ -5,12 +5,8 @@ import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../lib/openzeppelin-contracts/contracts/security/Pausable.sol";
 import "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
-import "../lib/chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "../lib/chainlink-brownie-contracts/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-/**
- * @title HealFi Partners
- * @notice Manages healthcare partnerships
- */
 contract HealFiPartners is Ownable, Pausable, AccessControl {
     bytes32 public constant PARTNER_MANAGER_ROLE = keccak256("PARTNER_MANAGER_ROLE");
     string public constant VERSION = "1.0.0";
@@ -78,7 +74,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         _setupRole(PARTNER_MANAGER_ROLE, msg.sender);
     }
     
-    /// @notice Sets contract addresses
     function setContracts(address _microcreditContract, address _tokenContract) 
         external 
         onlyOwner 
@@ -89,7 +84,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         emit ContractsSet(_microcreditContract, _tokenContract);
     }
     
-    /// @notice Updates stablecoins
     function updateSupportedStablecoins(address _celoUSD, address _celoEUR, address _celoREAL) 
         external 
         onlyOwner 
@@ -100,7 +94,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         celoREAL = _celoREAL;
     }
     
-    /// @notice Registers partner
     function registerPartner(
         string memory name,
         string memory location,
@@ -127,7 +120,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         emit PartnerRegistered(msg.sender, name, partnerType);
     }
     
-    /// @notice Verifies partner
     function verifyPartner(address partner) 
         external 
         onlyRole(PARTNER_MANAGER_ROLE) 
@@ -138,7 +130,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         emit PartnerVerified(partner);
     }
     
-    /// @notice Deactivates partner
     function deactivatePartner(address partner) 
         external 
         onlyRole(PARTNER_MANAGER_ROLE) 
@@ -150,7 +141,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         emit PartnerDeactivated(partner);
     }
     
-    /// @notice Records service
     function recordService(
         address patient,
         uint256 amount,
@@ -176,7 +166,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         emit ServiceProvided(recordId, patient, msg.sender, amount);
     }
     
-    /// @notice Applies discount
     function applyDiscount(address patient, uint256 fullAmount, address token) 
         external 
         onlyVerifiedPartner 
@@ -190,7 +179,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         return discountedAmount;
     }
     
-    /// @notice Processes payment
     function processPayment(address patient, uint256 amount, address token) 
         external 
         whenNotPaused 
@@ -205,7 +193,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         IERC20(token).transfer(partners[msg.sender].paymentAddress, partnerAmount);
     }
     
-    /// @notice Gets partner details
     function getPartnerDetails(address partner) 
         external 
         view 
@@ -231,7 +218,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         );
     }
     
-    /// @notice Gets patient service history
     function getPatientServiceHistory(address patient) 
         external 
         view 
@@ -240,12 +226,10 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         return patientServiceHistory[patient];
     }
     
-    /// @notice Gets all partners
     function getAllPartners() external view returns (address[] memory) {
         return partnerAddresses;
     }
     
-    /// @notice Sets platform fee rate
     function setPlatformFeeRate(uint256 newRate) 
         external 
         onlyRole(PARTNER_MANAGER_ROLE) 
@@ -255,7 +239,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         platformFeeRate = newRate;
     }
     
-    /// @notice Withdraws fees
     function withdrawFees(address token, address recipient, uint256 amount) 
         external 
         onlyRole(PARTNER_MANAGER_ROLE) 
@@ -267,7 +250,6 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         IERC20(token).transfer(recipient, amount);
     }
     
-    /// @notice Emergency fee withdrawal
     function emergencyFeeWithdrawal(address token, address recipient) 
         external 
         onlyRole(PARTNER_MANAGER_ROLE) 
@@ -278,17 +260,14 @@ contract HealFiPartners is Ownable, Pausable, AccessControl {
         emit EmergencyFeeWithdrawal(token, balance);
     }
     
-    /// @notice Pauses contract
     function pause() external onlyRole(PARTNER_MANAGER_ROLE) {
         _pause();
     }
     
-    /// @notice Unpauses contract
     function unpause() external onlyRole(PARTNER_MANAGER_ROLE) {
         _unpause();
     }
     
-    /// @notice Upgrade placeholder
     function upgradeTo(string memory newVersion) external onlyRole(PARTNER_MANAGER_ROLE) {
         emit VersionUpgraded(newVersion);
     }

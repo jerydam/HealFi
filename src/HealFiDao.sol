@@ -5,16 +5,8 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../lib/openzeppelin-contracts/contracts/security/Pausable.sol";
 import "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
+import "./interface.sol";
 
-interface IHealFiToken {
-    function balanceOf(address account) external view returns (uint256);
-    function getReputationScore(address user) external view returns (uint256);
-}
-
-/**
- * @title HealFi Governance
- * @notice DAO governance system for HealFi
- */
 contract HealFiGovernance is Ownable, Pausable, AccessControl {
     bytes32 public constant GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
     string public constant VERSION = "1.0.0";
@@ -71,7 +63,6 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         _setupRole(GOVERNOR_ROLE, msg.sender);
     }
     
-    /// @notice Sets contract addresses
     function setContracts(
         address _savingsContract, 
         address _microcreditContract, 
@@ -85,13 +76,12 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         emit ContractsSet(_savingsContract, _microcreditContract, _partnersContract, _tokenContract);
     }
     
-    /// @notice Creates new governance proposal
-    function createProposal(
+   function _createProposal(
         string memory description,
         bytes memory callData,
         address targetContract,
         ProposalType proposalType
-    ) external whenNotPaused returns (uint256) {
+    ) internal whenNotPaused returns (uint256) {
         require(IHealFiToken(tokenContract).balanceOf(msg.sender) >= proposalThreshold, 
                 "Insufficient tokens");
         
@@ -111,8 +101,41 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         emit ProposalCreated(proposalId, msg.sender, description, proposalType);
         return proposalId;
     }
+
+    // External wrapper for createProposal
+    function createProposal(
+        string memory description,
+        bytes memory callData,
+        address targetContract,
+        ProposalType proposalType
+    ) external whenNotPaused returns (uint256) {
+        return _createProposal(description, callData, targetContract, proposalType);
+    }
+
+    // Updated proposePartnerVerification using internal _createProposal
+    function proposePartnerVerification(address partner, string memory description) 
+        external 
+        whenNotPaused 
+        returns (uint256) 
+    {
+        bytes memory callData = abi.encodeWithSignature("verifyPartner(address)", partner);
+        return _createProposal(description, callData, partnersContract, ProposalType.PartnerVerification);
+    }
+
+    // Updated proposeMicrocreditTermChange using internal _createProposal
+    function proposeMicrocreditTermChange(
+        uint256 minimumSavingsStreak,
+        uint256 loanFeeRate,
+        string memory description
+    ) external whenNotPaused returns (uint256) {
+        bytes memory callData = abi.encodeWithSignature(
+            "updateTerms(uint256,uint256)",
+            minimumSavingsStreak,
+            loanFeeRate
+        );
+        return _createProposal(description, callData, microcreditContract, ProposalType.MicrocreditTerm);
+    }
     
-    /// @notice Casts vote on proposal
     function castVote(uint256 proposalId, bool support) 
         external 
         onlyValidProposal(proposalId) 
@@ -134,7 +157,6 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         emit VoteCast(proposalId, msg.sender, support, voteWeight);
     }
     
-    /// @notice Executes passed proposal
     function executeProposal(uint256 proposalId) 
         external 
         onlyValidProposal(proposalId) 
@@ -155,7 +177,6 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         emit ProposalExecuted(proposalId);
     }
     
-    /// @notice Cancels proposal
     function cancelProposal(uint256 proposalId) 
         external 
         onlyValidProposal(proposalId) 
@@ -169,7 +190,6 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         emit ProposalCancelled(proposalId);
     }
     
-    /// @notice Updates governance parameters
     function updateGovernanceParams(
         uint256 _votingPeriod,
         uint256 _executionDelay,
@@ -182,7 +202,6 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         proposalThreshold = _proposalThreshold;
     }
     
-    /// @notice Funds treasury
     function fundTreasury(address token, uint256 amount) 
         external 
         whenNotPaused 
@@ -192,7 +211,6 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         emit TreasuryFunded(token, amount);
     }
     
-    /// @notice Withdraws from treasury
     function withdrawFromTreasury(address token, uint256 amount, address recipient) 
         external 
         onlyRole(GOVERNOR_ROLE) 
@@ -204,7 +222,6 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         emit TreasuryWithdrawn(token, amount, recipient);
     }
     
-    /// @notice Emergency treasury withdrawal
     function emergencyTreasuryWithdrawal(address token, address recipient) 
         external 
         onlyRole(GOVERNOR_ROLE) 
@@ -216,12 +233,10 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         emit EmergencyTreasuryWithdrawal(token, amount);
     }
     
-    /// @notice Gets proposal count
     function getProposalCount() external view returns (uint256) {
         return proposalCount;
     }
     
-    /// @notice Checks if user has voted
     function hasVoted(uint256 proposalId, address user) 
         external 
         view 
@@ -231,17 +246,15 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
         return proposals[proposalId].hasVoted[user];
     }
     
-    /// @notice Proposes partner verification
     function proposePartnerVerification(address partner, string memory description) 
         external 
         whenNotPaused 
         returns (uint256) 
     {
         bytes memory callData = abi.encodeWithSignature("verifyPartner(address)", partner);
-        return createProposal(description, callData, partnersContract, ProposalType.PartnerVerification);
+        return _createProposal(description, callData, partnersContract, ProposalType.PartnerVerification);
     }
     
-    /// @notice Proposes microcredit term change
     function proposeMicrocreditTermChange(
         uint256 minimumSavingsStreak,
         uint256 loanFeeRate,
@@ -252,20 +265,17 @@ contract HealFiGovernance is Ownable, Pausable, AccessControl {
             minimumSavingsStreak,
             loanFeeRate
         );
-        return createProposal(description, callData, microcreditContract, ProposalType.MicrocreditTerm);
+        return _createProposal(description, callData, microcreditContract, ProposalType.MicrocreditTerm);
     }
     
-    /// @notice Pauses contract
     function pause() external onlyRole(GOVERNOR_ROLE) {
         _pause();
     }
     
-    /// @notice Unpauses contract
     function unpause() external onlyRole(GOVERNOR_ROLE) {
         _unpause();
     }
     
-    /// @notice Upgrade placeholder
     function upgradeTo(string memory newVersion) external onlyRole(GOVERNOR_ROLE) {
         emit VersionUpgraded(newVersion);
     }
