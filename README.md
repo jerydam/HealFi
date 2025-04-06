@@ -1,4 +1,3 @@
----
 
 # Welcome to HealFi: Your Path to Affordable Healthcare
 
