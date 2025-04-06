@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { Heart, MapPin, Search, ArrowUpRight, Clock, CheckCircle } from 'lucide-react'
+import { Heart, MapPin, Search, ArrowUpRight, CheckCircle } from "lucide-react"
 
 export default function PartnersPage() {
   return (
@@ -14,13 +14,13 @@ export default function PartnersPage() {
         </div>
 
         {/* Search and Filter */}
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
             <Input className="pl-10" placeholder="Search by name or location" />
           </div>
-          <Tabs defaultValue="all" className="w-full md:w-auto">
-            <TabsList>
+          <Tabs defaultValue="all" className="w-full sm:w-auto">
+            <TabsList className="grid grid-cols-4 w-full">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="clinics">Clinics</TabsTrigger>
               <TabsTrigger value="pharmacies">Pharmacies</TabsTrigger>
@@ -30,7 +30,7 @@ export default function PartnersPage() {
         </div>
 
         {/* Partners List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Abeokuta Clinic</CardTitle>
@@ -160,8 +160,8 @@ export default function PartnersPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-4">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-blue-100 p-2">
                     <CheckCircle className="h-4 w-4 text-blue-600" />
                   </div>
@@ -170,13 +170,13 @@ export default function PartnersPage() {
                     <p className="text-sm text-gray-500">Abeokuta Clinic</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">1.00 cUSD</p>
                   <p className="text-xs text-gray-500">March 10, 2025</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between border-b pb-4">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-green-100 p-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                   </div>
@@ -185,13 +185,13 @@ export default function PartnersPage() {
                     <p className="text-sm text-gray-500">HealthPlus Pharmacy</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">0.50 cUSD</p>
                   <p className="text-xs text-gray-500">February 25, 2025</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-blue-100 p-2">
                     <CheckCircle className="h-4 w-4 text-blue-600" />
                   </div>
@@ -200,7 +200,7 @@ export default function PartnersPage() {
                     <p className="text-sm text-gray-500">Lagos Medical Center</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">2.00 cUSD</p>
                   <p className="text-xs text-gray-500">January 15, 2025</p>
                 </div>
@@ -217,3 +217,4 @@ export default function PartnersPage() {
     </div>
   )
 }
+

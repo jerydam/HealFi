@@ -13,18 +13,23 @@ export default function TokensPage() {
 
         {/* Token Balance Card */}
         <Card className="bg-gradient-to-br from-green-50 to-blue-50 border-none">
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 px-4 sm:px-6">
             <div className="flex flex-col items-center text-center space-y-4">
               <div className="rounded-full bg-green-100 p-4">
-                <Heart className="h-8 w-8 text-green-600" />
+                <Heart className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
               </div>
               <div>
-                <h2 className="text-4xl font-bold">10 HST</h2>
-                <p className="text-gray-600">Health Support Tokens</p>
+                <h2 className="text-3xl sm:text-4xl font-bold">10 HST</h2>
+                <p className="text-sm sm:text-base text-gray-600">Health Support Tokens</p>
               </div>
-              <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mt-4">
-                <Button className="flex-1 bg-green-600 hover:bg-green-700">Swap for cUSD</Button>
-                <Button variant="outline" className="flex-1 border-orange-600 text-orange-600 hover:bg-orange-50">
+              <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md mt-2">
+                <Button className="flex-1 bg-green-600 hover:bg-green-700 text-sm sm:text-base py-2">
+                  Swap for cUSD
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-orange-600 text-orange-600 hover:bg-orange-50 text-sm sm:text-base py-2"
+                >
                   Use at Clinic
                 </Button>
               </div>
@@ -33,7 +38,7 @@ export default function TokensPage() {
         </Card>
 
         {/* Token Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle>Earning Opportunities</CardTitle>
@@ -115,8 +120,8 @@ export default function TokensPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-4">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-green-100 p-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                   </div>
@@ -125,13 +130,13 @@ export default function TokensPage() {
                     <p className="text-sm text-gray-500">Loan repayment bonus</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">+2 HST</p>
                   <p className="text-xs text-gray-500">April 1, 2025</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between border-b pb-4">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-orange-100 p-2">
                     <ArrowRight className="h-4 w-4 text-orange-600" />
                   </div>
@@ -140,13 +145,13 @@ export default function TokensPage() {
                     <p className="text-sm text-gray-500">Discount at Abeokuta Clinic</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">-1 HST</p>
                   <p className="text-xs text-gray-500">March 10, 2025</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-blue-100 p-2">
                     <RefreshCw className="h-4 w-4 text-blue-600" />
                   </div>
@@ -155,7 +160,7 @@ export default function TokensPage() {
                     <p className="text-sm text-gray-500">Savings streak bonus</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">+1 HST</p>
                   <p className="text-xs text-gray-500">February 28, 2025</p>
                 </div>

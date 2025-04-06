@@ -26,18 +26,26 @@ export default function VotingPage() {
 
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="active">Active Proposals</TabsTrigger>
-            <TabsTrigger value="past">Past Proposals</TabsTrigger>
-            <TabsTrigger value="create">Create Proposal</TabsTrigger>
+            <TabsTrigger value="active" className="text-xs sm:text-sm">
+              Active Proposals
+            </TabsTrigger>
+            <TabsTrigger value="past" className="text-xs sm:text-sm">
+              Past Proposals
+            </TabsTrigger>
+            <TabsTrigger value="create" className="text-xs sm:text-sm">
+              Create Proposal
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="active" className="mt-6 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Lower Loan Fees</CardTitle>
-                <CardDescription className="flex items-center">
-                  <Clock className="mr-1 h-3 w-3" /> Ends: April 10, 2025
-                </CardDescription>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <CardTitle className="text-lg sm:text-xl">Lower Loan Fees</CardTitle>
+                  <div className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 w-fit">
+                    Ends: April 10, 2025
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-gray-600">
@@ -58,14 +66,17 @@ export default function VotingPage() {
                     <span>200 HST</span>
                   </div>
                 </div>
-                <div className="rounded-lg bg-gray-50 p-4 space-y-2">
+                <div className="rounded-lg bg-gray-50 p-3 sm:p-4 space-y-2">
                   <p className="text-sm font-medium">Your vote:</p>
-                  <div className="flex gap-4">
-                    <Button className="flex-1 bg-green-600 hover:bg-green-700">
-                      <ThumbsUp className="mr-2 h-4 w-4" /> Vote For
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                    <Button className="flex-1 bg-green-600 hover:bg-green-700 text-xs sm:text-sm">
+                      <ThumbsUp className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Vote For
                     </Button>
-                    <Button variant="outline" className="flex-1 border-red-500 text-red-500 hover:bg-red-50">
-                      <ThumbsDown className="mr-2 h-4 w-4" /> Vote Against
+                    <Button
+                      variant="outline"
+                      className="flex-1 border-red-500 text-red-500 hover:bg-red-50 text-xs sm:text-sm"
+                    >
+                      <ThumbsDown className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Vote Against
                     </Button>
                   </div>
                 </div>
@@ -98,14 +109,17 @@ export default function VotingPage() {
                     <span>75 HST</span>
                   </div>
                 </div>
-                <div className="rounded-lg bg-gray-50 p-4 space-y-2">
+                <div className="rounded-lg bg-gray-50 p-3 sm:p-4 space-y-2">
                   <p className="text-sm font-medium">Your vote:</p>
-                  <div className="flex gap-4">
-                    <Button className="flex-1 bg-green-600 hover:bg-green-700">
-                      <ThumbsUp className="mr-2 h-4 w-4" /> Vote For
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                    <Button className="flex-1 bg-green-600 hover:bg-green-700 text-xs sm:text-sm">
+                      <ThumbsUp className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Vote For
                     </Button>
-                    <Button variant="outline" className="flex-1 border-red-500 text-red-500 hover:bg-red-50">
-                      <ThumbsDown className="mr-2 h-4 w-4" /> Vote Against
+                    <Button
+                      variant="outline"
+                      className="flex-1 border-red-500 text-red-500 hover:bg-red-50 text-xs sm:text-sm"
+                    >
+                      <ThumbsDown className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Vote Against
                     </Button>
                   </div>
                 </div>
@@ -116,9 +130,9 @@ export default function VotingPage() {
           <TabsContent value="past" className="mt-6 space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Increase Savings Interest Rate</CardTitle>
-                  <div className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <CardTitle className="text-lg sm:text-xl">Increase Savings Interest Rate</CardTitle>
+                  <div className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 w-fit">
                     Passed
                   </div>
                 </div>
@@ -217,12 +231,12 @@ export default function VotingPage() {
                     <option value="governance">Governance Rules</option>
                   </select>
                 </div>
-                <div className="rounded-lg bg-amber-50 p-4 text-amber-800">
-                  <div className="flex items-start">
-                    <AlertCircle className="mr-2 h-5 w-5 text-amber-600 flex-shrink-0" />
+                <div className="rounded-lg bg-amber-50 p-3 sm:p-4 text-amber-800">
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
                     <div>
                       <p className="font-medium">Proposal requirements:</p>
-                      <ul className="list-disc list-inside mt-1 space-y-1 text-sm">
+                      <ul className="list-disc list-inside mt-1 space-y-1 text-xs sm:text-sm">
                         <li>You must have at least 5 HST to create a proposal</li>
                         <li>Proposals run for 7 days by default</li>
                         <li>A minimum of 100 HST in total votes is required for a proposal to pass</li>

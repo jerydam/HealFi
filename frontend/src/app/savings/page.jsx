@@ -3,28 +3,28 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowUp, ArrowDown, TrendingUp, Calendar, Info } from 'lucide-react'
+import { ArrowUp, ArrowDown, TrendingUp, Calendar, Info } from "lucide-react"
 
 export default function SavingsPage() {
   return (
-    <div className="container px-4 md:px-6 py-8">
-      <div className="flex flex-col space-y-8">
+    <div className="container px-4 md:px-6 py-6 sm:py-8">
+      <div className="flex flex-col space-y-6 sm:space-y-8">
         <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Your Savings</h1>
-          <p className="text-gray-500">Manage your healthcare savings account</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Your Savings</h1>
+          <p className="text-gray-500 text-sm sm:text-base">Manage your healthcare savings account</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="md:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Savings Overview</CardTitle>
               <CardDescription>Your current savings and progress</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col space-y-2">
-                <div className="flex items-baseline justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2">
                   <span className="text-sm font-medium text-gray-500">Current Balance</span>
-                  <span className="text-3xl font-bold">5.20 cUSD</span>
+                  <span className="text-2xl sm:text-3xl font-bold">5.20 cUSD</span>
                 </div>
                 <div className="flex items-center text-sm text-green-600">
                   <TrendingUp className="mr-1 h-4 w-4" />
@@ -42,21 +42,21 @@ export default function SavingsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg bg-gray-50 p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-lg bg-gray-50 p-3 sm:p-4">
                   <div className="flex items-center space-x-2">
-                    <Calendar className="h-5 w-5 text-gray-500" />
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                     <span className="text-sm font-medium">Savings Streak</span>
                   </div>
-                  <p className="mt-2 text-2xl font-bold">3 Weeks</p>
+                  <p className="mt-2 text-xl sm:text-2xl font-bold">3 Weeks</p>
                   <p className="text-xs text-gray-500">Keep going to earn bonus tokens!</p>
                 </div>
-                <div className="rounded-lg bg-gray-50 p-4">
+                <div className="rounded-lg bg-gray-50 p-3 sm:p-4">
                   <div className="flex items-center space-x-2">
-                    <TrendingUp className="h-5 w-5 text-gray-500" />
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                     <span className="text-sm font-medium">Interest Rate</span>
                   </div>
-                  <p className="mt-2 text-2xl font-bold">5% APY</p>
+                  <p className="mt-2 text-xl sm:text-2xl font-bold">5% APY</p>
                   <p className="text-xs text-gray-500">Earn more by saving regularly</p>
                 </div>
               </div>
@@ -69,15 +69,15 @@ export default function SavingsPage() {
               <CardDescription>Manage your savings</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full bg-green-600 hover:bg-green-700">
-                <ArrowUp className="mr-2 h-4 w-4" /> Add Savings
+              <Button className="w-full bg-green-600 hover:bg-green-700 text-sm sm:text-base">
+                <ArrowUp className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Add Savings
               </Button>
-              <Button variant="outline" className="w-full">
-                <ArrowDown className="mr-2 h-4 w-4" /> Withdraw
+              <Button variant="outline" className="w-full text-sm sm:text-base">
+                <ArrowDown className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Withdraw
               </Button>
-              <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-800">
+              <div className="rounded-lg bg-blue-50 p-3 sm:p-4 text-sm text-blue-800">
                 <div className="flex items-start">
-                  <Info className="mr-2 h-5 w-5 text-blue-600 flex-shrink-0" />
+                  <Info className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
                   <p>Save weekly to earn more interest and unlock bigger loans!</p>
                 </div>
               </div>
@@ -87,10 +87,14 @@ export default function SavingsPage() {
 
         <Tabs defaultValue="deposit" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="deposit">Deposit</TabsTrigger>
-            <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+            <TabsTrigger value="deposit" className="text-xs sm:text-sm">
+              Deposit
+            </TabsTrigger>
+            <TabsTrigger value="withdraw" className="text-xs sm:text-sm">
+              Withdraw
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="deposit" className="mt-6">
+          <TabsContent value="deposit" className="mt-4 sm:mt-6">
             <Card>
               <CardHeader>
                 <CardTitle>Add to Your Savings</CardTitle>
@@ -114,7 +118,7 @@ export default function SavingsPage() {
                     <span>3.0 cUSD</span>
                   </div>
                 </div>
-                <div className="rounded-lg bg-gray-50 p-4 space-y-2">
+                <div className="rounded-lg bg-gray-50 p-3 sm:p-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Amount</span>
                     <span>1.00 cUSD</span>
@@ -134,7 +138,7 @@ export default function SavingsPage() {
               </CardFooter>
             </Card>
           </TabsContent>
-          <TabsContent value="withdraw" className="mt-6">
+          <TabsContent value="withdraw" className="mt-4 sm:mt-6">
             <Card>
               <CardHeader>
                 <CardTitle>Withdraw Savings</CardTitle>
@@ -157,7 +161,7 @@ export default function SavingsPage() {
                     <span>5.2 cUSD</span>
                   </div>
                 </div>
-                <div className="rounded-lg bg-gray-50 p-4 space-y-2">
+                <div className="rounded-lg bg-gray-50 p-3 sm:p-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Amount</span>
                     <span>2.60 cUSD</span>
@@ -171,15 +175,17 @@ export default function SavingsPage() {
                     <span>2.59 cUSD</span>
                   </div>
                 </div>
-                <div className="rounded-lg bg-orange-50 p-4 text-sm text-orange-800">
+                <div className="rounded-lg bg-orange-50 p-3 sm:p-4 text-sm text-orange-800">
                   <div className="flex items-start">
-                    <Info className="mr-2 h-5 w-5 text-orange-600 flex-shrink-0" />
+                    <Info className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 flex-shrink-0" />
                     <p>Withdrawing may affect your loan eligibility and interest earnings.</p>
                   </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">Withdraw Funds</Button>
+                <Button variant="outline" className="w-full">
+                  Withdraw Funds
+                </Button>
               </CardFooter>
             </Card>
           </TabsContent>
@@ -192,8 +198,8 @@ export default function SavingsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-4">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-green-100 p-2">
                     <ArrowUp className="h-4 w-4 text-green-600" />
                   </div>
@@ -202,13 +208,13 @@ export default function SavingsPage() {
                     <p className="text-sm text-gray-500">Weekly savings</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">+1.00 cUSD</p>
                   <p className="text-xs text-gray-500">Apr 3, 2025</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between border-b pb-4">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-blue-100 p-2">
                     <TrendingUp className="h-4 w-4 text-blue-600" />
                   </div>
@@ -217,13 +223,13 @@ export default function SavingsPage() {
                     <p className="text-sm text-gray-500">Monthly interest payment</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">+0.20 cUSD</p>
                   <p className="text-xs text-gray-500">Apr 1, 2025</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-green-100 p-2">
                     <ArrowUp className="h-4 w-4 text-green-600" />
                   </div>
@@ -232,7 +238,7 @@ export default function SavingsPage() {
                     <p className="text-sm text-gray-500">Weekly savings</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">+1.00 cUSD</p>
                   <p className="text-xs text-gray-500">Mar 27, 2025</p>
                 </div>
@@ -240,10 +246,13 @@ export default function SavingsPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button variant="outline" className="w-full">View All Transactions</Button>
+            <Button variant="outline" className="w-full">
+              View All Transactions
+            </Button>
           </CardFooter>
         </Card>
       </div>
     </div>
   )
 }
+

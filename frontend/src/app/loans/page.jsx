@@ -8,24 +8,24 @@ import { CreditCard, Calendar, Clock, CheckCircle, AlertCircle } from "lucide-re
 
 export default function LoansPage() {
   return (
-    <div className="container px-4 md:px-6 py-8">
-      <div className="flex flex-col space-y-8">
+    <div className="container px-4 md:px-6 py-6 sm:py-8">
+      <div className="flex flex-col space-y-6 sm:space-y-8">
         <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Your Loans</h1>
-          <p className="text-gray-500">Manage your healthcare microloans</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Your Loans</h1>
+          <p className="text-gray-500 text-sm sm:text-base">Manage your healthcare microloans</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="md:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Current Loan</CardTitle>
               <CardDescription>Your active loan details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col space-y-2">
-                <div className="flex items-baseline justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2">
                   <span className="text-sm font-medium text-gray-500">Outstanding Balance</span>
-                  <span className="text-3xl font-bold">2.00 cUSD</span>
+                  <span className="text-2xl sm:text-3xl font-bold">2.00 cUSD</span>
                 </div>
                 <div className="flex items-center text-sm text-orange-600">
                   <Clock className="mr-1 h-4 w-4" />
@@ -41,28 +41,28 @@ export default function LoansPage() {
                 <Progress value={30} className="h-2" />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg bg-gray-50 p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-lg bg-gray-50 p-3 sm:p-4">
                   <div className="flex items-center space-x-2">
-                    <Calendar className="h-5 w-5 text-gray-500" />
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                     <span className="text-sm font-medium">Loan Term</span>
                   </div>
-                  <p className="mt-2 text-2xl font-bold">30 Days</p>
+                  <p className="mt-2 text-xl sm:text-2xl font-bold">30 Days</p>
                   <p className="text-xs text-gray-500">Started on March 17, 2025</p>
                 </div>
-                <div className="rounded-lg bg-gray-50 p-4">
+                <div className="rounded-lg bg-gray-50 p-3 sm:p-4">
                   <div className="flex items-center space-x-2">
-                    <CreditCard className="h-5 w-5 text-gray-500" />
+                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                     <span className="text-sm font-medium">Interest Rate</span>
                   </div>
-                  <p className="mt-2 text-2xl font-bold">3%</p>
+                  <p className="mt-2 text-xl sm:text-2xl font-bold">3%</p>
                   <p className="text-xs text-gray-500">Total interest: 0.06 cUSD</p>
                 </div>
               </div>
 
-              <div className="rounded-lg bg-green-50 p-4 text-sm text-green-800">
+              <div className="rounded-lg bg-green-50 p-3 sm:p-4 text-sm text-green-800">
                 <div className="flex items-start">
-                  <CheckCircle className="mr-2 h-5 w-5 text-green-600 flex-shrink-0" />
+                  <CheckCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
                   <div>
                     <p className="font-medium">On-time repayment benefits:</p>
                     <ul className="list-disc list-inside mt-1 space-y-1">
@@ -75,7 +75,7 @@ export default function LoansPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button className="w-full bg-orange-600 hover:bg-orange-700">Repay Loan</Button>
+              <Button className="w-full bg-orange-600 hover:bg-orange-700 text-sm sm:text-base">Repay Loan</Button>
             </CardFooter>
           </Card>
 
@@ -85,25 +85,25 @@ export default function LoansPage() {
               <CardDescription>Your current borrowing status</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-lg bg-gray-50 p-4">
+              <div className="rounded-lg bg-gray-50 p-3 sm:p-4">
                 <div className="flex items-center space-x-2">
                   <span className="text-sm font-medium">Maximum Loan Amount</span>
                 </div>
-                <p className="mt-2 text-2xl font-bold">5.00 cUSD</p>
+                <p className="mt-2 text-xl sm:text-2xl font-bold">5.00 cUSD</p>
                 <p className="text-xs text-gray-500">Based on your savings history</p>
               </div>
 
-              <div className="rounded-lg bg-gray-50 p-4">
+              <div className="rounded-lg bg-gray-50 p-3 sm:p-4">
                 <div className="flex items-center space-x-2">
                   <span className="text-sm font-medium">Available to Borrow</span>
                 </div>
-                <p className="mt-2 text-2xl font-bold">3.00 cUSD</p>
+                <p className="mt-2 text-xl sm:text-2xl font-bold">3.00 cUSD</p>
                 <p className="text-xs text-gray-500">After current loan is repaid</p>
               </div>
 
-              <div className="rounded-lg bg-orange-50 p-4 text-sm text-orange-800">
+              <div className="rounded-lg bg-orange-50 p-3 sm:p-4 text-sm text-orange-800">
                 <div className="flex items-start">
-                  <AlertCircle className="mr-2 h-5 w-5 text-orange-600 flex-shrink-0" />
+                  <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 flex-shrink-0" />
                   <p>You have an active loan. New loans are available after repayment.</p>
                 </div>
               </div>
@@ -113,10 +113,14 @@ export default function LoansPage() {
 
         <Tabs defaultValue="repay" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="repay">Repay Loan</TabsTrigger>
-            <TabsTrigger value="request">Request Loan</TabsTrigger>
+            <TabsTrigger value="repay" className="text-xs sm:text-sm">
+              Repay Loan
+            </TabsTrigger>
+            <TabsTrigger value="request" className="text-xs sm:text-sm">
+              Request Loan
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="repay" className="mt-6">
+          <TabsContent value="repay" className="mt-4 sm:mt-6">
             <Card>
               <CardHeader>
                 <CardTitle>Repay Your Loan</CardTitle>
@@ -127,7 +131,7 @@ export default function LoansPage() {
                   <label className="text-sm font-medium">Amount (cUSD)</label>
                   <Input type="number" placeholder="0.00" min="0.1" step="0.1" max="2.00" defaultValue="2.00" />
                 </div>
-                <div className="rounded-lg bg-gray-50 p-4 space-y-2">
+                <div className="rounded-lg bg-gray-50 p-3 sm:p-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Outstanding Balance</span>
                     <span>2.00 cUSD</span>
@@ -145,9 +149,9 @@ export default function LoansPage() {
                     <span>2.01 cUSD</span>
                   </div>
                 </div>
-                <div className="rounded-lg bg-green-50 p-4 text-sm text-green-800">
+                <div className="rounded-lg bg-green-50 p-3 sm:p-4 text-sm text-green-800">
                   <div className="flex items-start">
-                    <CheckCircle className="mr-2 h-5 w-5 text-green-600 flex-shrink-0" />
+                    <CheckCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
                     <p>Full repayment will make you eligible for a new loan immediately!</p>
                   </div>
                 </div>
@@ -157,16 +161,16 @@ export default function LoansPage() {
               </CardFooter>
             </Card>
           </TabsContent>
-          <TabsContent value="request" className="mt-6">
+          <TabsContent value="request" className="mt-4 sm:mt-6">
             <Card>
               <CardHeader>
                 <CardTitle>Request a New Loan</CardTitle>
                 <CardDescription>Apply for healthcare microcredit</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="rounded-lg bg-orange-50 p-4 text-sm text-orange-800">
+                <div className="rounded-lg bg-orange-50 p-3 sm:p-4 text-sm text-orange-800">
                   <div className="flex items-start">
-                    <AlertCircle className="mr-2 h-5 w-5 text-orange-600 flex-shrink-0" />
+                    <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 flex-shrink-0" />
                     <p>You have an active loan. New loans are available after repayment.</p>
                   </div>
                 </div>
@@ -209,8 +213,8 @@ export default function LoansPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-4">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-green-100 p-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                   </div>
@@ -219,13 +223,13 @@ export default function LoansPage() {
                     <p className="text-sm text-gray-500">Full repayment</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">1.00 cUSD</p>
                   <p className="text-xs text-gray-500">Feb 15, 2025</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between border-b pb-4">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-orange-100 p-2">
                     <CreditCard className="h-4 w-4 text-orange-600" />
                   </div>
@@ -234,13 +238,13 @@ export default function LoansPage() {
                     <p className="text-sm text-gray-500">30-day term</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">1.00 cUSD</p>
                   <p className="text-xs text-gray-500">Jan 16, 2025</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
                   <div className="rounded-full bg-green-100 p-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                   </div>
@@ -249,7 +253,7 @@ export default function LoansPage() {
                     <p className="text-sm text-gray-500">Full repayment</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-sm font-medium">0.50 cUSD</p>
                   <p className="text-xs text-gray-500">Dec 20, 2024</p>
                 </div>
