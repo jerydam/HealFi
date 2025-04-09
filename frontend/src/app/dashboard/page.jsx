@@ -8,12 +8,14 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-1 py-6 sm:py-8">
-        <div className="container px-4 md:px-6">
+        <div className="container mx-auto px-4 md:px-6">
           <div className="flex flex-col space-y-6 sm:space-y-8">
             {/* Header */}
             <div className="flex flex-col space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
-              <p className="text-gray-500 text-sm sm:text-base">Manage your healthcare savings and loans</p>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight dark:text-white">Dashboard</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">
+                Manage your healthcare savings and loans
+              </p>
             </div>
 
             {/* Overview Cards */}
@@ -21,21 +23,21 @@ export default function Dashboard() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Your Savings</CardTitle>
-                  <Wallet className="h-4 w-4 text-green-600" />
+                  <Wallet className="h-4 w-4 text-green-600 dark:text-green-400" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">5.20 cUSD</div>
-                  <p className="text-xs text-gray-500">+0.20 cUSD interest earned</p>
+                  <div className="text-xl sm:text-2xl font-bold dark:text-white">5.20 cUSD</div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">+0.20 cUSD interest earned</p>
                   <div className="mt-4">
                     <div className="flex justify-between text-xs mb-1">
-                      <span>Savings Goal: 10 cUSD</span>
-                      <span>52%</span>
+                      <span className="dark:text-gray-300">Savings Goal: 10 cUSD</span>
+                      <span className="dark:text-gray-300">52%</span>
                     </div>
                     <Progress value={52} className="h-2" />
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button className="w-full bg-green-600 hover:bg-green-700 text-sm sm:text-base">
+                  <Button className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-sm sm:text-base">
                     <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Add Savings
                   </Button>
                 </CardFooter>
@@ -106,19 +108,19 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b dark:border-gray-700 pb-4">
                         <div className="flex items-center space-x-3 mb-2 sm:mb-0">
-                          <div className="rounded-full bg-green-100 p-2">
-                            <Plus className="h-4 w-4 text-green-600" />
+                          <div className="rounded-full bg-green-100 dark:bg-green-900/30 p-2">
+                            <Plus className="h-4 w-4 text-green-600 dark:text-green-400" />
                           </div>
                           <div>
-                            <p className="font-medium">Saved 1 cUSD</p>
-                            <p className="text-sm text-gray-500">Weekly savings deposit</p>
+                            <p className="font-medium dark:text-white">Saved 1 cUSD</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Weekly savings deposit</p>
                           </div>
                         </div>
                         <div className="text-left sm:text-right">
-                          <p className="text-sm font-medium">+1.00 cUSD</p>
-                          <p className="text-xs text-gray-500">2 days ago</p>
+                          <p className="text-sm font-medium dark:text-white">+1.00 cUSD</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">2 days ago</p>
                         </div>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
@@ -260,4 +262,3 @@ export default function Dashboard() {
     </div>
   )
 }
-

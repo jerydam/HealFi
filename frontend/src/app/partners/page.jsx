@@ -6,7 +6,7 @@ import { Heart, MapPin, Search, ArrowUpRight, CheckCircle } from "lucide-react"
 
 export default function PartnersPage() {
   return (
-    <div className="container px-4 md:px-6 py-8">
+    <div className="container mx-auto px-4 md:px-6 py-6 sm:py-8">
       <div className="flex flex-col space-y-8">
         <div className="flex flex-col space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Healthcare Partners</h1>
@@ -217,4 +217,3 @@ export default function PartnersPage() {
     </div>
   )
 }
-

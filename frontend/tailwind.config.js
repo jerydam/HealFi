@@ -25,11 +25,11 @@ module.exports = {
           background: "hsl(var(--background))",
           foreground: "hsl(var(--foreground))",
           primary: {
-            DEFAULT: "#34C759", // Green as primary color
+            DEFAULT: "hsl(var(--primary))",
             foreground: "hsl(var(--primary-foreground))",
           },
           secondary: {
-            DEFAULT: "#FF9500", // Orange as secondary color
+            DEFAULT: "hsl(var(--secondary))",
             foreground: "hsl(var(--secondary-foreground))",
           },
           destructive: {
@@ -74,7 +74,6 @@ module.exports = {
         },
       },
     },
-    plugins: [], // Removed the tailwindcss-animate plugin
+    plugins: [],
   }
-  
   

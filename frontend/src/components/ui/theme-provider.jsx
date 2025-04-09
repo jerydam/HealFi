@@ -4,23 +4,35 @@ import { createContext, useContext, useEffect, useState } from "react"
 
 const ThemeProviderContext = createContext()
 
-export function ThemeProvider({ children, defaultTheme = "light", storageKey = "theme", ...props }) {
+export function ThemeProvider({
+  children,
+  defaultTheme = "light",
+  storageKey = "theme",
+  attribute = "data-theme",
+  ...props
+}) {
   const [theme, setTheme] = useState(defaultTheme)
 
   useEffect(() => {
     const root = window.document.documentElement
 
-    // Remove both theme classes
-    root.classList.remove("light", "dark")
+    // Remove the previous attribute value
+    const previousValue = root.getAttribute(attribute)
+    if (previousValue) {
+      root.classList.remove(previousValue)
+    }
 
     // Add the current theme class
     root.classList.add(theme)
+
+    // Set the attribute value
+    root.setAttribute(attribute, theme)
 
     // Store the theme preference
     if (storageKey) {
       localStorage.setItem(storageKey, theme)
     }
-  }, [theme, storageKey])
+  }, [theme, attribute, storageKey])
 
   // Initialize theme from localStorage on mount
   useEffect(() => {
@@ -53,4 +65,3 @@ export const useTheme = () => {
   }
   return context
 }
-
