@@ -1,267 +1,223 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { CheckCircle, XCircle, Clock, AlertCircle, ThumbsUp, ThumbsDown } from "lucide-react"
+import { ThumbsUp, ThumbsDown, Send, Loader2 } from "lucide-react"
+import { connectWallet } from "@/lib/web3"
 
 export default function VotingPage() {
+  const [walletAddress, setWalletAddress] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [proposalTitle, setProposalTitle] = useState("")
+  const [proposalDescription, setProposalDescription] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+
+  useEffect(() => {
+    const initWallet = async () => {
+      try {
+        const result = await connectWallet()
+        if (result.success) {
+          setWalletAddress(result.address)
+        } else {
+          setError("Please connect your wallet")
+        }
+      } catch (error) {
+        console.error("Error initializing wallet:", error)
+        setError("Error connecting wallet")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    initWallet()
+  }, [])
+
+  const handleVoteFor = async (proposalId) => {
+    setError("")
+    setSuccess("")
+    try {
+      // Placeholder: Implement vote for logic with smart contract
+      // Example: await voteForProposal(proposalId)
+      setSuccess(`Voted for proposal ${proposalId}! (Placeholder)`)
+    } catch (error) {
+      setError("Failed to vote. Please try again.")
+      console.error(error)
+    }
+  }
+
+  const handleVoteAgainst = async (proposalId) => {
+    setError("")
+    setSuccess("")
+    try {
+      // Placeholder: Implement vote against logic with smart contract
+      // Example: await voteAgainstProposal(proposalId)
+      setSuccess(`Voted against proposal ${proposalId}! (Placeholder)`)
+    } catch (error) {
+      setError("Failed to vote. Please try again.")
+      console.error(error)
+    }
+  }
+
+  const handleSubmitProposal = async () => {
+    if (!proposalTitle || !proposalDescription) {
+      setError("Please provide a title and description for the proposal")
+      return
+    }
+    setIsSubmitting(true)
+    setError("")
+    setSuccess("")
+    try {
+      // Placeholder: Implement proposal submission logic with smart contract
+      // Example: await submitProposal(proposalTitle, proposalDescription)
+      setSuccess("Proposal submitted! (Placeholder)")
+      setProposalTitle("")
+      setProposalDescription("")
+    } catch (error) {
+      setError("Failed to submit proposal. Please try again.")
+      console.error(error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 md:px-6 py-12 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-green-600 dark:text-green-400" />
+          <p className="text-gray-500 dark:text-gray-400">Loading voting information...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!walletAddress) {
+    return (
+      <div className="container mx-auto px-4 md:px-6 py-12">
+        <div className="max-w-md mx-auto text-center">
+          <Send className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+          <h2 className="text-2xl font-bold mb-2 dark:text-white">Connect Your Wallet</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">Please connect your wallet to participate in voting</p>
+          <Button
+            onClick={async () => {
+              const result = await connectWallet()
+              if (result.success) {
+                setWalletAddress(result.address)
+              }
+            }}
+            className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+          >
+            Connect Wallet
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto px-4 md:px-6 py-6 sm:py-8">
-      <div className="flex flex-col space-y-8">
+      <div className="flex flex-col space-y-6 sm:space-y-8">
         <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight dark:text-white">Community Governance</h1>
-          <p className="text-gray-500 dark:text-gray-400">Participate in HealFi's decision-making process</p>
-        </div>
-
-        <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4 text-blue-800 dark:text-blue-300">
-          <div className="flex items-start">
-            <AlertCircle className="mr-2 h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-            <div>
-              <p className="font-medium">Your voting power: 10 HST</p>
-              <p className="text-sm">Each token gives you one vote. Earn more tokens to increase your influence!</p>
-            </div>
-          </div>
-        </div>
-
-        <Tabs defaultValue="active" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="active" className="text-xs sm:text-sm">
-              Active Proposals
-            </TabsTrigger>
-            <TabsTrigger value="past" className="text-xs sm:text-sm">
-              Past Proposals
-            </TabsTrigger>
-            <TabsTrigger value="create" className="text-xs sm:text-sm">
-              Create Proposal
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="active" className="mt-6 space-y-6">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <CardTitle className="text-lg sm:text-xl dark:text-white">Lower Loan Fees</CardTitle>
-                  <div className="rounded-full bg-green-100 dark:bg-green-900/30 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:text-green-300 w-fit">
-                    Ends: April 10, 2025
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  This proposal suggests reducing the loan transaction fee from 1% to 0.5% to make healthcare loans more
-                  accessible to all users.
-                </p>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="dark:text-gray-300">Votes For: 60%</span>
-                    <span className="dark:text-gray-300">Votes Against: 40%</span>
-                  </div>
-                  <div className="flex h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                    <div className="bg-green-600 dark:bg-green-500 h-full" style={{ width: "60%" }}></div>
-                    <div className="bg-red-500 dark:bg-red-600 h-full" style={{ width: "40%" }}></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>300 HST</span>
-                    <span>200 HST</span>
-                  </div>
-                </div>
-                <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 space-y-2">
-                  <p className="text-sm font-medium dark:text-white">Your vote:</p>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-                    <Button className="flex-1 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-xs sm:text-sm">
-                      <ThumbsUp className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Vote For
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 border-red-500 text-red-500 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20 text-xs sm:text-sm"
-                    >
-                      <ThumbsDown className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Vote Against
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="dark:text-white">Add New Healthcare Partner</CardTitle>
-                <CardDescription className="flex items-center dark:text-gray-400">
-                  <Clock className="mr-1 h-3 w-3" /> Ends: April 15, 2025
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  This proposal suggests adding Ibadan General Hospital as a new healthcare partner with a 7% discount
-                  for HealFi users.
-                </p>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="dark:text-gray-300">Votes For: 85%</span>
-                    <span className="dark:text-gray-300">Votes Against: 15%</span>
-                  </div>
-                  <div className="flex h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                    <div className="bg-green-600 dark:bg-green-500 h-full" style={{ width: "85%" }}></div>
-                    <div className="bg-red-500 dark:bg-red-600 h-full" style={{ width: "15%" }}></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>425 HST</span>
-                    <span>75 HST</span>
-                  </div>
-                </div>
-                <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 space-y-2">
-                  <p className="text-sm font-medium dark:text-white">Your vote:</p>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-                    <Button className="flex-1 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-xs sm:text-sm">
-                      <ThumbsUp className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Vote For
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 border-red-500 text-red-500 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20 text-xs sm:text-sm"
-                    >
-                      <ThumbsDown className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Vote Against
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="past" className="mt-6 space-y-6">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <CardTitle className="text-lg sm:text-xl dark:text-white">Increase Savings Interest Rate</CardTitle>
-                  <div className="rounded-full bg-green-100 dark:bg-green-900/30 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:text-green-300 w-fit">
-                    Passed
-                  </div>
-                </div>
-                <CardDescription className="dark:text-gray-400">Ended: March 15, 2025</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  This proposal increased the annual interest rate on savings from 4% to 5% to incentivize more
-                  healthcare savings.
-                </p>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="dark:text-gray-300">Votes For: 75%</span>
-                    <span className="dark:text-gray-300">Votes Against: 25%</span>
-                  </div>
-                  <div className="flex h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                    <div className="bg-green-600 dark:bg-green-500 h-full" style={{ width: "75%" }}></div>
-                    <div className="bg-red-500 dark:bg-red-600 h-full" style={{ width: "25%" }}></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>450 HST</span>
-                    <span>150 HST</span>
-                  </div>
-                </div>
-                <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-4 text-sm text-green-800 dark:text-green-300">
-                  <div className="flex items-start">
-                    <CheckCircle className="mr-2 h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    <p>This proposal has been implemented. The new interest rate is now active.</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="dark:text-white">Add Emergency Loan Option</CardTitle>
-                  <div className="rounded-full bg-red-100 dark:bg-red-900/30 px-2.5 py-0.5 text-xs font-medium text-red-800 dark:text-red-300">
-                    Rejected
-                  </div>
-                </div>
-                <CardDescription className="dark:text-gray-400">Ended: February 20, 2025</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  This proposal suggested adding an emergency loan option with higher limits but also higher interest
-                  rates.
-                </p>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="dark:text-gray-300">Votes For: 30%</span>
-                    <span className="dark:text-gray-300">Votes Against: 70%</span>
-                  </div>
-                  <div className="flex h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                    <div className="bg-green-600 dark:bg-green-500 h-full" style={{ width: "30%" }}></div>
-                    <div className="bg-red-500 dark:bg-red-600 h-full" style={{ width: "70%" }}></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>180 HST</span>
-                    <span>420 HST</span>
-                  </div>
-                </div>
-                <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-800 dark:text-red-300">
-                  <div className="flex items-start">
-                    <XCircle className="mr-2 h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                    <p>This proposal was rejected by the community and will not be implemented.</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="create" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="dark:text-white">Create a New Proposal</CardTitle>
-                <CardDescription className="dark:text-gray-400">Share your ideas to improve HealFi</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium dark:text-gray-300">Proposal Title</label>
-                  <Input placeholder="Enter a clear, concise title" className="dark:border-gray-700" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium dark:text-gray-300">Description</label>
-                  <Textarea
-                    placeholder="Describe your proposal in detail. What problem does it solve? How will it benefit the community?"
-                    className="min-h-[120px] dark:border-gray-700"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium dark:text-gray-300">Category</label>
-                  <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background dark:border-gray-700 dark:bg-gray-800">
-                    <option value="">Select a category</option>
-                    <option value="finance">Financial Parameters</option>
-                    <option value="partners">Healthcare Partners</option>
-                    <option value="features">New Features</option>
-                    <option value="governance">Governance Rules</option>
-                  </select>
-                </div>
-                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3 sm:p-4 text-amber-800 dark:text-amber-300">
-                  <div className="flex flex-col sm:flex-row sm:items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium">Proposal requirements:</p>
-                      <ul className="list-disc list-inside mt-1 space-y-1 text-xs sm:text-sm">
-                        <li>You must have at least 5 HST to create a proposal</li>
-                        <li>Proposals run for 7 days by default</li>
-                        <li>A minimum of 100 HST in total votes is required for a proposal to pass</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700">
-                  Submit Proposal
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        <div className="text-center space-y-2">
-          <h3 className="text-lg font-medium dark:text-white">Your voice shapes HealFi!</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            Every vote counts in our community-driven platform. Help us build a better healthcare financing solution for
-            everyone.
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight dark:text-white">Community Voting</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">
+            Vote on proposals to shape the HealFi ecosystem
           </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="dark:text-white">Active Proposals</CardTitle>
+              <CardDescription className="dark:text-gray-400">
+                Review and vote on community proposals
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Placeholder: Proposal data should be fetched from a contract */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg dark:text-white">Proposals Not Available</CardTitle>
+                  <CardDescription className="dark:text-gray-400">
+                    Voting proposals not implemented yet
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Please check back later for active community proposals.
+                  </p>
+                </CardContent>
+                <CardFooter className="flex gap-4">
+                  <Button
+                    onClick={() => handleVoteFor(1)}
+                    className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+                  >
+                    <ThumbsUp className="mr-2 h-4 w-4" /> Vote For
+                  </Button>
+                  <Button
+                    onClick={() => handleVoteAgainst(1)}
+                    variant="outline"
+                    className="dark:border-gray-700 dark:text-gray-200"
+                  >
+                    <ThumbsDown className="mr-2 h-4 w-4" /> Vote Against
+                  </Button>
+                </CardFooter>
+              </Card>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="dark:text-white">Submit a Proposal</CardTitle>
+              <CardDescription className="dark:text-gray-400">
+                Share your ideas for the HealFi community
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium dark:text-gray-300">Proposal Title</label>
+                <Input
+                  placeholder="Enter proposal title"
+                  value={proposalTitle}
+                  onChange={(e) => setProposalTitle(e.target.value)}
+                  className="dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium dark:text-gray-300">Description</label>
+                <Textarea
+                  placeholder="Describe your proposal"
+                  value={proposalDescription}
+                  onChange={(e) => setProposalDescription(e.target.value)}
+                  className="dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col">
+              <Button
+                onClick={handleSubmitProposal}
+                disabled={isSubmitting || !proposalTitle || !proposalDescription}
+                className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" /> Submit Proposal
+                  </>
+                )}
+              </Button>
+              {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+              {success && <p className="text-green-500 text-sm mt-2">{success}</p>}
+            </CardFooter>
+          </Card>
         </div>
       </div>
     </div>

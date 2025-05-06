@@ -46,7 +46,7 @@ export default function Home() {
                 <Wallet className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
               </div>
               <h3 className="text-xl sm:text-2xl font-bold dark:text-white">500+</h3>
-              <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base text-center">Total Savings (cUSD)</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base text-center">Total Savings (USDT)</p>
             </div>
             <div className="flex flex-col items-center p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
               <div className="rounded-full bg-orange-100 dark:bg-orange-900/30 p-3 mb-4">

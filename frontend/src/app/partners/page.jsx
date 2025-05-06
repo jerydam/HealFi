@@ -1,219 +1,113 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { Heart, MapPin, Search, ArrowUpRight, CheckCircle } from "lucide-react"
+import { MapPin, Globe, Loader2 } from "lucide-react"
+import { connectWallet } from "@/lib/web3"
 
 export default function PartnersPage() {
+  const [walletAddress, setWalletAddress] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    const initWallet = async () => {
+      try {
+        const result = await connectWallet()
+        if (result.success) {
+          setWalletAddress(result.address)
+        } else {
+          setError("Please connect your wallet")
+        }
+      } catch (error) {
+        console.error("Error initializing wallet:", error)
+        setError("Error connecting wallet")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    initWallet()
+  }, [])
+
+  const handleVisitWebsite = (url) => {
+    // Placeholder: Redirect to partner website
+    window.open(url, "_blank")
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 md:px-6 py-12 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-green-600 dark:text-green-400" />
+          <p className="text-gray-500 dark:text-gray-400">Loading partners...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto px-4 md:px-6 py-6 sm:py-8">
-      <div className="flex flex-col space-y-8">
+      <div className="flex flex-col space-y-6 sm:space-y-8">
         <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Healthcare Partners</h1>
-          <p className="text-gray-500">Find trusted clinics and pharmacies that accept HealFi</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight dark:text-white">Healthcare Partners</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">
+            Find clinics and pharmacies that accept HealFi
+          </p>
         </div>
 
-        {/* Search and Filter */}
-        <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <Input className="pl-10" placeholder="Search by name or location" />
+            <Input
+              placeholder="Search for a healthcare provider..."
+              className="pl-10 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+            />
+            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
           </div>
-          <Tabs defaultValue="all" className="w-full sm:w-auto">
-            <TabsList className="grid grid-cols-4 w-full">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="clinics">Clinics</TabsTrigger>
-              <TabsTrigger value="pharmacies">Pharmacies</TabsTrigger>
-              <TabsTrigger value="nearby">Nearby</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <Button variant="outline" className="dark:border-gray-700 dark:text-gray-200">
+            Filter by Location
+          </Button>
         </div>
 
-        {/* Partners List */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Placeholder: Partner data should be fetched from a contract or API */}
           <Card>
             <CardHeader>
-              <CardTitle>Abeokuta Clinic</CardTitle>
-              <CardDescription className="flex items-center">
-                <MapPin className="mr-1 h-3 w-3" /> Abeokuta, Nigeria
+              <CardTitle className="dark:text-white">Partner Data Not Available</CardTitle>
+              <CardDescription className="dark:text-gray-400">
+                Healthcare partner information not implemented yet
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Services</span>
-                  <span className="text-sm font-medium">General Healthcare</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Discount</span>
-                  <span className="text-sm font-medium text-green-600">5% with HST</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Payment</span>
-                  <span className="text-sm font-medium">cUSD, Cash</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Rating</span>
-                  <div className="flex items-center">
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 text-gray-300" />
-                  </div>
-                </div>
-              </div>
+              <p className="text-gray-500 dark:text-gray-400">
+                Please check back later for a list of healthcare partners.
+              </p>
             </CardContent>
             <CardFooter>
-              <Button className="w-full">
-                Visit Partner <ArrowUpRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>HealthPlus Pharmacy</CardTitle>
-              <CardDescription className="flex items-center">
-                <MapPin className="mr-1 h-3 w-3" /> Lagos, Nigeria
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Services</span>
-                  <span className="text-sm font-medium">Medications, Supplies</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Discount</span>
-                  <span className="text-sm font-medium text-green-600">3% with HST</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Payment</span>
-                  <span className="text-sm font-medium">cUSD, Cash, Card</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Rating</span>
-                  <div className="flex items-center">
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full">
-                Visit Partner <ArrowUpRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Lagos Medical Center</CardTitle>
-              <CardDescription className="flex items-center">
-                <MapPin className="mr-1 h-3 w-3" /> Lagos, Nigeria
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Services</span>
-                  <span className="text-sm font-medium">Specialized Care</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Discount</span>
-                  <span className="text-sm font-medium text-green-600">10% with HST</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Payment</span>
-                  <span className="text-sm font-medium">cUSD, Cash, Card</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Rating</span>
-                  <div className="flex items-center">
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-                    <Heart className="h-4 w-4 text-gray-300" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full">
-                Visit Partner <ArrowUpRight className="ml-2 h-4 w-4" />
+              <Button
+                variant="outline"
+                className="w-full dark:border-gray-700 dark:text-gray-200"
+                onClick={() => handleVisitWebsite("https://example.com")}
+              >
+                <Globe className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Visit Website
               </Button>
             </CardFooter>
           </Card>
         </div>
 
-        {/* Service History */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Service History</CardTitle>
-            <CardDescription>Recent visits to healthcare partners</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
-                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
-                  <div className="rounded-full bg-blue-100 p-2">
-                    <CheckCircle className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Checkup</p>
-                    <p className="text-sm text-gray-500">Abeokuta Clinic</p>
-                  </div>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-sm font-medium">1.00 cUSD</p>
-                  <p className="text-xs text-gray-500">March 10, 2025</p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
-                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
-                  <div className="rounded-full bg-green-100 p-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Medication</p>
-                    <p className="text-sm text-gray-500">HealthPlus Pharmacy</p>
-                  </div>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-sm font-medium">0.50 cUSD</p>
-                  <p className="text-xs text-gray-500">February 25, 2025</p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
-                  <div className="rounded-full bg-blue-100 p-2">
-                    <CheckCircle className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Consultation</p>
-                    <p className="text-sm text-gray-500">Lagos Medical Center</p>
-                  </div>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-sm font-medium">2.00 cUSD</p>
-                  <p className="text-xs text-gray-500">January 15, 2025</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full">
-              View All History
-            </Button>
-          </CardFooter>
-        </Card>
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            className="dark:border-gray-700 dark:text-gray-200"
+            onClick={() => alert("View all partners not implemented yet")}
+          >
+            View All Partners
+          </Button>
+        </div>
       </div>
+      {error && <p className="text-red-500 text-sm mt-4 text-center">{error}</p>}
     </div>
   )
 }

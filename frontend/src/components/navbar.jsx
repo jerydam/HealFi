@@ -3,12 +3,19 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Heart, Menu, X, Sun, Moon } from "lucide-react"
-import { useState } from "react"
-import { useTheme } from "@/components/ui/theme-provider"
+import { useState, useEffect } from "react"
+import { useTheme } from "@/components/theme-provider"
+import WalletConnectButton from "@/components/wallet-connnect-button"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const { theme, setTheme } = useTheme()
+
+  // Wait until mounted to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark")
@@ -56,28 +63,30 @@ export default function Navbar() {
             Tokens
           </Link>
           <Link
-            href="/voting"
+            href="/register"
             className="text-sm font-medium hover:text-green-600 dark:hover:text-green-500 transition-colors"
           >
-            Voting
+            Register
           </Link>
         </nav>
 
         <div className="hidden md:flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full">
-            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            <span className="sr-only">Toggle theme</span>
-          </Button>
-          <Button variant="outline" size="sm">
-            Connect Wallet
-          </Button>
+          {mounted && (
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full">
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              <span className="sr-only">Toggle theme</span>
+            </Button>
+          )}
+          <WalletConnectButton />
         </div>
 
         <div className="flex items-center md:hidden gap-2">
-          <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full">
-            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            <span className="sr-only">Toggle theme</span>
-          </Button>
+          {mounted && (
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full">
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              <span className="sr-only">Toggle theme</span>
+            </Button>
+          )}
           <button
             className="flex items-center justify-center rounded-md p-2"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -134,7 +143,7 @@ export default function Navbar() {
             >
               Voting
             </Link>
-            <Button className="w-full mt-2">Connect Wallet</Button>
+            <WalletConnectButton />
           </div>
         </div>
       )}
