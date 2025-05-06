@@ -20,7 +20,7 @@ The system uses OpenZeppelin's libraries (`Ownable`, `Pausable`, `AccessControl`
 **Purpose**: The central hub that initializes and coordinates the HealFi ecosystem.
 
 - **Key Features**:
-  - Initializes with support for three stablecoins: `celoUSD` (cUSD), `celoEUR` (cEUR), and `celoREAL` (cREAL).
+  - Initializes with support for three stablecoins: `celoUSD` (USDT), `celoEUR` (cEUR), and `celoREAL` (cREAL).
   - Sets up connections between sub-contracts (Savings, Microcredit, Partners, Token, Governance).
   - Manages system-wide roles (ADMIN_ROLE) and pausing functionality.
   - Allows ownership transfer to a governance contract for decentralization.
@@ -43,7 +43,7 @@ The system uses OpenZeppelin's libraries (`Ownable`, `Pausable`, `AccessControl`
 **Purpose**: Manages user savings accounts with interest accrual to encourage long-term savings.
 
 - **Key Features**:
-  - Supports deposits and withdrawals in cUSD, cEUR, and cREAL.
+  - Supports deposits and withdrawals in USDT, cEUR, and cREAL.
   - Tracks savings streaks to qualify users for microcredit.
   - Distributes interest (2% annually by default) to active savers.
   - Integrates with Microcredit for loan funding and repayments.
@@ -70,7 +70,7 @@ The system uses OpenZeppelin's libraries (`Ownable`, `Pausable`, `AccessControl`
 **Purpose**: Provides microloans for healthcare, with eligibility based on savings history and credit scores.
 
 - **Key Features**:
-  - Loans can be requested in cUSD, cEUR, or cREAL, with a 1% fee (configurable).
+  - Loans can be requested in USDT, cEUR, or cREAL, with a 1% fee (configurable).
   - Emergency loans bypass savings streak requirements.
   - Integrates with Savings for funding and Partners for direct healthcare payments.
   - Maintains credit scores (starting at 500) based on repayment behavior.

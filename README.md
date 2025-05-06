@@ -1,7 +1,7 @@
 
 # Welcome to HealFi: Your Path to Affordable Healthcare
 
-HealFi is a simple, secure, and community-driven platform built on the CELO blockchain to help you save money for healthcare and get small loans when you need them—without relying on banks. Whether you’re putting aside a little cash each week or need help paying for a doctor’s visit, HealFi is here to support you. It’s designed with people in Africa in mind, using CELO’s digital money (cUSD) to keep things affordable and easy.
+HealFi is a simple, secure, and community-driven platform built on the CELO blockchain to help you save money for healthcare and get small loans when you need them—without relying on banks. Whether you’re putting aside a little cash each week or need help paying for a doctor’s visit, HealFi is here to support you. It’s designed with people in Africa in mind, using CELO’s digital money (USDT) to keep things affordable and easy.
 
 Imagine HealFi as your digital health wallet: you save, borrow, and connect with doctors—all in one place, controlled by you and backed by your community.
 
@@ -23,7 +23,7 @@ No middlemen, no hidden costs—just a fair system you control with your phone.
 Here’s a step-by-step guide to using HealFi:
 
 ### 1. Save Money for Your Health
-- **What You Do**: Add small amounts of cUSD (CELO’s digital dollar) to your HealFi savings whenever you can—like a piggy bank for healthcare.
+- **What You Do**: Add small amounts of USDT (CELO’s digital dollar) to your HealFi savings whenever you can—like a piggy bank for healthcare.
 - **How It Helps**: Your money gets pooled with others’ savings in a secure digital vault (a "smart contract"). This pool earns interest, and you get a share of it—think of it as a bonus for saving!
 - **Cool Perk**: The more often you save, the better your “savings streak” gets. This streak can unlock bigger loans later.
 
@@ -38,7 +38,7 @@ Here’s a step-by-step guide to using HealFi:
 
 ### 4. Earn Health Support Tokens (HST)
 - **What You Do**: Keep saving or repay loans on time.
-- **What You Get**: You’ll earn Health Support Tokens (HST)—digital rewards you can use to pay for healthcare or swap for cUSD.
+- **What You Get**: You’ll earn Health Support Tokens (HST)—digital rewards you can use to pay for healthcare or swap for USDT.
 - **Why It’s Awesome**: It’s like getting a thank-you for being responsible, and it builds your reputation in the HealFi community.
 
 ### 5. Have a Say with Community Voting
@@ -60,13 +60,13 @@ Here’s a step-by-step guide to using HealFi:
 
 ### What You’ll Need
 1. **A Smartphone**: To use HealFi, you need a phone with a CELO wallet app (like Valora or MetaMask).
-2. **Some cUSD**: This is the digital money HealFi uses. You can get it through the CELO network (ask a friend or exchange some local cash!).
+2. **Some USDT**: This is the digital money HealFi uses. You can get it through the CELO network (ask a friend or exchange some local cash!).
 3. **A Willingness to Save**: Even a little bit goes a long way.
 
 ### Steps to Join
-1. **Set Up Your Wallet**: Download a CELO wallet app, create an account, and add some cUSD.
+1. **Set Up Your Wallet**: Download a CELO wallet app, create an account, and add some USDT.
 2. **Connect to HealFi**: Open the HealFi app or website (coming soon!) and link your wallet.
-3. **Start Saving**: Send cUSD to your HealFi savings pool—it’s that easy.
+3. **Start Saving**: Send USDT to your HealFi savings pool—it’s that easy.
 4. **Use It**: Save up, request a loan, or visit a partner clinic whenever you’re ready.
 
 ---
@@ -74,7 +74,7 @@ Here’s a step-by-step guide to using HealFi:
 ## Real-Life Examples
 
 ### Amina’s Story
-Amina, a market trader in Nigeria, saves 1 cUSD every week with HealFi. After a few months, her savings grow with interest, and she earns HST tokens. When her son gets sick, she requests a 10 cUSD loan with her sister as a guarantor. HealFi approves it fast, and she pays a nearby clinic directly. Amina repays the loan over time, earning more tokens and building her reputation.
+Amina, a market trader in Nigeria, saves 1 USDT every week with HealFi. After a few months, her savings grow with interest, and she earns HST tokens. When her son gets sick, she requests a 10 USDT loan with her sister as a guarantor. HealFi approves it fast, and she pays a nearby clinic directly. Amina repays the loan over time, earning more tokens and building her reputation.
 
 ### Juma’s Emergency
 Juma, a farmer in Kenya, faces a sudden medical bill. He hasn’t saved much, but HealFi lets him request an emergency loan with his cousin’s help as a guarantor. The loan covers his treatment at a HealFi partner hospital, and he repays it slowly—no stress, no high fees.
@@ -102,13 +102,13 @@ A: Your guarantor’s stake might be used to cover it, but we’ll work with you
 **Q: Do I need a bank account?**  
 A: Nope—just a CELO wallet on your phone.
 
-**Q: How do I get cUSD?**  
+**Q: How do I get USDT?**  
 A: You can buy it with local currency through a CELO exchange or ask someone to send you some.
 
 ---
 
 ## Join the HealFi Community
 
-HealFi isn’t just a tool—it’s a movement to make healthcare fair and affordable for everyone. Start saving today, support your neighbors, and help shape a healthier future. Together, we can make a difference—one cUSD at a time!
+HealFi isn’t just a tool—it’s a movement to make healthcare fair and affordable for everyone. Start saving today, support your neighbors, and help shape a healthier future. Together, we can make a difference—one USDT at a time!
 
 ---
