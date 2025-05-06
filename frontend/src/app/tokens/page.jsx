@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Heart, ArrowRight, CheckCircle, RefreshCw, Repeat } from "lucide-react"
+import { Heart, ArrowRight, CheckCircle, RefreshCw, Repeat, Loader2 } from "lucide-react"
 import { connectWallet, getHSTBalance } from "@/lib/web3"
 
 export default function TokensPage() {
