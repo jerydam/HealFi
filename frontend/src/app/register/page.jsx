@@ -1,98 +1,98 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Heart, Users, User, Plus, Trash } from "lucide-react"
-import { registerIndividual, registerFamily } from "@/lib/web3"
-import { useRouter } from "next/navigation"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Heart, Users, User, Plus, Trash } from "lucide-react";
+import { registerIndividual, registerFamily } from "@/lib/web3";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
-  const router = useRouter()
-  const [isRegistering, setIsRegistering] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const router = useRouter();
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   // Individual registration state
-  const [individualPlan, setIndividualPlan] = useState("0") // 0 = Basic, 1 = Premium
+  const [individualPlan, setIndividualPlan] = useState("0"); // 0 = Basic, 1 = Premium
 
   // Family registration state
-  const [familyPlan, setFamilyPlan] = useState("0")
-  const [familyMembers, setFamilyMembers] = useState([""])
+  const [familyPlan, setFamilyPlan] = useState("0");
+  const [familyMembers, setFamilyMembers] = useState([""]);
 
   const handleAddFamilyMember = () => {
-    setFamilyMembers([...familyMembers, ""])
-  }
+    setFamilyMembers([...familyMembers, ""]);
+  };
 
   const handleRemoveFamilyMember = (index) => {
-    const updatedMembers = [...familyMembers]
-    updatedMembers.splice(index, 1)
-    setFamilyMembers(updatedMembers)
-  }
+    const updatedMembers = [...familyMembers];
+    updatedMembers.splice(index, 1);
+    setFamilyMembers(updatedMembers);
+  };
 
   const handleFamilyMemberChange = (index, value) => {
-    const updatedMembers = [...familyMembers]
-    updatedMembers[index] = value
-    setFamilyMembers(updatedMembers)
-  }
+    const updatedMembers = [...familyMembers];
+    updatedMembers[index] = value;
+    setFamilyMembers(updatedMembers);
+  };
 
   const handleIndividualRegistration = async () => {
-    setIsRegistering(true)
-    setError("")
-    setSuccess("")
+    setIsRegistering(true);
+    setError("");
+    setSuccess("");
 
     try {
-      const result = await registerIndividual(Number.parseInt(individualPlan))
+      const result = await registerIndividual(Number.parseInt(individualPlan));
       if (result.success) {
-        setSuccess("Registration successful! Redirecting to dashboard...")
+        setSuccess("Registration successful! Redirecting to verification...");
         setTimeout(() => {
-          router.push("/dashboard")
-        }, 2000)
+          router.push("/verify");
+        }, 2000);
       } else {
-        setError(result.error)
+        setError(result.error);
       }
     } catch (error) {
-      setError("Registration failed. Please try again.")
-      console.error(error)
+      setError("Registration failed. Please try again.");
+      console.error(error);
     } finally {
-      setIsRegistering(false)
+      setIsRegistering(false);
     }
-  }
+  };
 
   const handleFamilyRegistration = async () => {
-    setIsRegistering(true)
-    setError("")
-    setSuccess("")
+    setIsRegistering(true);
+    setError("");
+    setSuccess("");
 
     // Validate family members
-    const validMembers = familyMembers.filter((member) => member.trim() !== "")
+    const validMembers = familyMembers.filter((member) => member.trim() !== "");
     if (validMembers.length < 2) {
-      setError("Please add at least 2 valid family members")
-      setIsRegistering(false)
-      return
+      setError("Please add at least 2 valid family members");
+      setIsRegistering(false);
+      return;
     }
 
     try {
-      const result = await registerFamily(validMembers, Number.parseInt(familyPlan))
+      const result = await registerFamily(validMembers, Number.parseInt(familyPlan));
       if (result.success) {
-        setSuccess("Family registration successful! Redirecting to dashboard...")
+        setSuccess("Family registration successful! Redirecting to verification...");
         setTimeout(() => {
-          router.push("/dashboard")
-        }, 2000)
+          router.push("/verify");
+        }, 2000);
       } else {
-        setError(result.error)
+        setError(result.error);
       }
     } catch (error) {
-      setError("Registration failed. Please try again.")
-      console.error(error)
+      setError("Registration failed. Please try again.");
+      console.error(error);
     } finally {
-      setIsRegistering(false)
+      setIsRegistering(false);
     }
-  }
+  };
 
   return (
     <div className="container mx-auto px-4 md:px-6 py-8">
@@ -166,7 +166,7 @@ export default function RegisterPage() {
                     <ul className="list-disc list-inside space-y-1">
                       <li>Save for healthcare expenses</li>
                       <li>Earn HST tokens for consistent savings</li>
-                      <li>Access to microloans when needed</li>
+                      <li>Access to microloans when needed (after verification)</li>
                       <li>Discounts at partner healthcare facilities</li>
                       {individualPlan === "1" && (
                         <>
@@ -274,7 +274,7 @@ export default function RegisterPage() {
                     <p className="font-medium mb-2">Family Plan Benefits:</p>
                     <ul className="list-disc list-inside space-y-1">
                       <li>Pool resources for family healthcare needs</li>
-                      <li>Shared savings and loan eligibility</li>
+                      <li>Shared savings and loan eligibility (after verification)</li>
                       <li>Family treasury for emergency healthcare</li>
                       <li>Discounts at partner healthcare facilities</li>
                       {familyPlan === "1" && (
@@ -304,5 +304,5 @@ export default function RegisterPage() {
         </Tabs>
       </div>
     </div>
-  )
+  );
 }

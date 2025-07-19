@@ -1,5 +1,3 @@
-"use client"
-
 import { ethers } from "ethers"
 import { CONTRACT_ADDRESSES, LoanContractAbi, UserSavingsContractAbi, HSTcontractAbi, ERC20Abi } from "./contract"
 
@@ -54,21 +52,19 @@ export async function getSavingsTransactions(address) {
     const transactions = await Promise.all([
       ...depositEvents.map(async (event) => ({
         type: "Deposit",
-        amount: ethers.formatUnits(event.args.amount, 6), // USDT has 6 decimals
-        timestamp: (await event.getBlock()).timestamp * 1000, // Convert to milliseconds
+        amount: ethers.formatUnits(event.args.amount, 6),
+        timestamp: (await event.getBlock()).timestamp * 1000,
         txHash: event.transactionHash,
       })),
       ...withdrawEvents.map(async (event) => ({
         type: "Withdrawal",
-        amount: ethers.formatUnits(event.args.amount, 6), // USDT has 6 decimals
-        timestamp: (await event.getBlock()).timestamp * 1000, // Convert to milliseconds
+        amount: ethers.formatUnits(event.args.amount, 6),
+        timestamp: (await event.getBlock()).timestamp * 1000,
         txHash: event.transactionHash,
       })),
     ])
 
-    // Sort by timestamp (newest first)
     transactions.sort((a, b) => b.timestamp - a.timestamp)
-
     return transactions
   } catch (error) {
     console.error("Error fetching transactions:", error)
@@ -113,6 +109,50 @@ export const getUSDTContract = async (signer) => {
   }
 }
 
+// Fetch platform metrics
+export const getPlatformMetrics = async () => {
+  try {
+    const provider = getProvider()
+    if (!provider) {
+      throw new Error("No provider available")
+    }
+    const signer = await provider.getSigner()
+    const savingsContract = await getSavingsContract(signer)
+    const loanContract = await getLoanContract(signer)
+    const usdtContract = await getUSDTContract(signer)
+
+    // Fetch total savings
+    const totalSavings = await savingsContract.totalSavings()
+    const totalSavingsUSDT = ethers.formatUnits(totalSavings, 6)
+
+    // Fetch total loans
+    const totalLoans = await loanContract.totalLoans()
+    const totalLoansUSDT = ethers.formatUnits(totalLoans, 6)
+
+    // Fetch total users
+    const totalUsers = await savingsContract.totalUsers()
+
+    // Fetch contract USDT balance
+    const contractBalance = await usdtContract.balanceOf(CONTRACT_ADDRESSES.saving)
+    const contractBalanceUSDT = ethers.formatUnits(contractBalance, 6)
+
+    return {
+      totalSavings: totalSavingsUSDT,
+      totalLoans: totalLoansUSDT,
+      totalUsers: Number(totalUsers),
+      contractBalance: contractBalanceUSDT,
+    }
+  } catch (error) {
+    console.error("Error fetching platform metrics:", error)
+    return {
+      totalSavings: "0",
+      totalLoans: "0",
+      totalUsers: 0,
+      contractBalance: "0",
+    }
+  }
+}
+
 // Loan functions
 export const checkLoanEligibility = async (address) => {
   try {
@@ -132,9 +172,7 @@ export const applyForLoan = async (amount) => {
     const signer = await provider.getSigner()
     const loanContract = await getLoanContract(signer)
 
-    // Convert amount to wei (assuming 6 decimals for USDT)
     const amountInWei = ethers.parseUnits(amount.toString(), 6)
-
     const tx = await loanContract.applyLoan(amountInWei)
     await tx.wait()
     return { success: true, txHash: tx.hash }
@@ -151,14 +189,10 @@ export const repayLoan = async (amount) => {
     const loanContract = await getLoanContract(signer)
     const usdtContract = await getUSDTContract(signer)
 
-    // Convert amount to wei (assuming 6 decimals for USDT)
     const amountInWei = ethers.parseUnits(amount.toString(), 6)
-
-    // Approve USDT transfer first
     const approveTx = await usdtContract.approve(CONTRACT_ADDRESSES.loan, amountInWei)
     await approveTx.wait()
 
-    // Repay loan
     const tx = await loanContract.repayLoan(amountInWei)
     await tx.wait()
     return { success: true, txHash: tx.hash }
@@ -167,7 +201,8 @@ export const repayLoan = async (amount) => {
     return { success: false, error: error.message }
   }
 }
-// Fetch all user activities from savings and loan contracts
+
+// Fetch all user activities
 export async function getUserActivities(address) {
   try {
     const provider = getProvider()
@@ -181,27 +216,32 @@ export async function getUserActivities(address) {
       throw new Error("Failed to get contract instances")
     }
 
-    // Fetch Savings Contract events
     const registerIndividualFilter = savingsContract.filters.RegisterIndividual(address)
     const registerFamilyFilter = savingsContract.filters.RegisterFamily(address)
     const depositFilter = savingsContract.filters.Deposit(address)
     const withdrawFilter = savingsContract.filters.Withdraw(address)
-
-    const registerIndividualEvents = await savingsContract.queryFilter(registerIndividualFilter, 0, "latest")
-    const registerFamilyEvents = await savingsContract.queryFilter(registerFamilyFilter, 0, "latest")
-    const depositEvents = await savingsContract.queryFilter(depositFilter, 0, "latest")
-    const withdrawEvents = await savingsContract.queryFilter(withdrawFilter, 0, "latest")
-
-    // Fetch Loan Contract events
     const loanAppliedFilter = loanContract.filters.LoanApplied(address)
     const loanRepaidFilter = loanContract.filters.LoanRepaid(address)
     const guarantorStakedFilter = loanContract.filters.GuarantorStaked(address)
 
-    const loanAppliedEvents = await loanContract.queryFilter(loanAppliedFilter, 0, "latest")
-    const loanRepaidEvents = await loanContract.queryFilter(loanRepaidFilter, 0, "latest")
-    const guarantorStakedEvents = await loanContract.queryFilter(guarantorStakedFilter, 0, "latest")
+    const [
+      registerIndividualEvents,
+      registerFamilyEvents,
+      depositEvents,
+      withdrawEvents,
+      loanAppliedEvents,
+      loanRepaidEvents,
+      guarantorStakedEvents,
+    ] = await Promise.all([
+      savingsContract.queryFilter(registerIndividualFilter, 0, "latest"),
+      savingsContract.queryFilter(registerFamilyFilter, 0, "latest"),
+      savingsContract.queryFilter(depositFilter, 0, "latest"),
+      savingsContract.queryFilter(withdrawFilter, 0, "latest"),
+      loanContract.queryFilter(loanAppliedFilter, 0, "latest"),
+      loanContract.queryFilter(loanRepaidFilter, 0, "latest"),
+      loanContract.queryFilter(guarantorStakedFilter, 0, "latest"),
+    ])
 
-    // Combine and format events
     const activities = await Promise.all([
       ...registerIndividualEvents.map(async (event) => ({
         type: "RegisterIndividual",
@@ -247,9 +287,7 @@ export async function getUserActivities(address) {
       })),
     ])
 
-    // Sort by timestamp (newest first)
     activities.sort((a, b) => b.timestamp - a.timestamp)
-
     return activities
   } catch (error) {
     console.error("Error fetching user activities:", error)
@@ -330,14 +368,10 @@ export const deposit = async (amount) => {
     const savingsContract = await getSavingsContract(signer)
     const usdtContract = await getUSDTContract(signer)
 
-    // Convert amount to wei (assuming 6 decimals for USDT)
     const amountInWei = ethers.parseUnits(amount.toString(), 6)
-
-    // Approve USDT transfer first
     const approveTx = await usdtContract.approve(CONTRACT_ADDRESSES.saving, amountInWei)
     await approveTx.wait()
 
-    // Deposit
     const tx = await savingsContract.deposit(amountInWei)
     await tx.wait()
     return { success: true, txHash: tx.hash }
@@ -353,9 +387,7 @@ export const withdraw = async (amount) => {
     const signer = await provider.getSigner()
     const savingsContract = await getSavingsContract(signer)
 
-    // Convert amount to wei (assuming 6 decimals for USDT)
     const amountInWei = ethers.parseUnits(amount.toString(), 6)
-
     const tx = await savingsContract.withdraw(amountInWei)
     await tx.wait()
     return { success: true, txHash: tx.hash }
@@ -387,6 +419,21 @@ export const getSavingsInfo = async (address) => {
     return null
   }
 }
+export const registerFacility = async (name, licenseNumber) => {
+  try {
+    const provider = getProvider();
+    const signer = await provider.getSigner();
+    const hstContract = await getHSTContract(signer);
+
+    const tx = await hstContract.registerFacility(name, licenseNumber);
+    await tx.wait();
+    return { success: true, txHash: tx.hash };
+  } catch (error) {
+    console.error("Error registering facility:", error);
+    return { success: false, error: error.message };
+  }
+};
+
 
 // HST Token functions
 export const getHSTBalance = async (address) => {
@@ -396,7 +443,7 @@ export const getHSTBalance = async (address) => {
     const hstContract = await getHSTContract(signer)
 
     const balance = await hstContract.balanceOf(address)
-    return ethers.formatUnits(balance, 18) // Assuming HST has 18 decimals
+    return ethers.formatUnits(balance, 18)
   } catch (error) {
     console.error("Error getting HST balance:", error)
     return "0"
@@ -411,7 +458,7 @@ export const getUSDTBalance = async (address) => {
     const usdtContract = await getUSDTContract(signer)
 
     const balance = await usdtContract.balanceOf(address)
-    return ethers.formatUnits(balance, 6) // USDT has 6 decimals
+    return ethers.formatUnits(balance, 6)
   } catch (error) {
     console.error("Error getting USDT balance:", error)
     return "0"

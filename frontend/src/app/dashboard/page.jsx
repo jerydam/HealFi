@@ -1,95 +1,98 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Wallet, CreditCard, Heart, ArrowUpRight, Plus, Clock, CheckCircle, Loader2, ExternalLink } from "lucide-react"
-import { connectWallet, getSavingsInfo, getLoanInfo, getHSTBalance, getUserActivities } from "@/lib/web3"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Wallet, CreditCard, Heart, ArrowUpRight, Plus, Clock, CheckCircle, Loader2, ExternalLink, AlertCircle } from "lucide-react";
+import { connectWallet, getSavingsInfo, getLoanInfo, getHSTBalance, getUserActivities } from "@/lib/web3";
 
 export default function Dashboard() {
-  const router = useRouter()
-  const [walletAddress, setWalletAddress] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const [savingsInfo, setSavingsInfo] = useState(null)
-  const [loanInfo, setLoanInfo] = useState(null)
-  const [hstBalance, setHstBalance] = useState("0")
-  const [activities, setActivities] = useState([]) // New state for activities
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const [walletAddress, setWalletAddress] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isVerified, setIsVerified] = useState(false);
+  const [savingsInfo, setSavingsInfo] = useState(null);
+  const [loanInfo, setLoanInfo] = useState(null);
+  const [hstBalance, setHstBalance] = useState("0");
+  const [activities, setActivities] = useState([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const initWallet = async () => {
       try {
-        const result = await connectWallet()
+        const result = await connectWallet();
         if (result.success) {
-          setWalletAddress(result.address)
-          await loadUserData(result.address)
+          setWalletAddress(result.address);
+          const verificationStatus = localStorage.getItem(`verification_${result.address}`);
+          setIsVerified(verificationStatus === "true");
+          await loadUserData(result.address);
         } else {
-          setError("Please connect your wallet")
-          setIsLoading(false)
+          setError("Please connect your wallet");
+          setIsLoading(false);
         }
       } catch (err) {
-        setError("Error connecting wallet")
-        setIsLoading(false)
+        setError("Error connecting wallet");
+        setIsLoading(false);
       }
-    }
+    };
 
-    initWallet()
-  }, [])
+    initWallet();
+  }, []);
 
   const loadUserData = async (address) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const savings = await getSavingsInfo(address)
+      const savings = await getSavingsInfo(address);
       if (!savings) {
-        router.push("/register")
-        return
+        router.push("/register");
+        return;
       }
-      setSavingsInfo(savings)
-      const loan = await getLoanInfo(address)
-      setLoanInfo(loan)
-      const balance = await getHSTBalance(address)
-      setHstBalance(balance)
-      const userActivities = await getUserActivities(address)
-      setActivities(userActivities.slice(0, 5)) // Limit to 5 recent activities
+      setSavingsInfo(savings);
+      const loan = await getLoanInfo(address);
+      setLoanInfo(loan);
+      const balance = await getHSTBalance(address);
+      setHstBalance(balance);
+      const userActivities = await getUserActivities(address);
+      setActivities(userActivities.slice(0, 5));
     } catch (err) {
-      setError("Error loading user data")
+      setError("Error loading user data");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const calculateSavingsProgress = () => {
-    if (!savingsInfo) return 0
-    const goal = 10
-    return Math.min(100, (Number.parseFloat(savingsInfo.balance) / goal) * 100)
-  }
+    if (!savingsInfo) return 0;
+    const goal = 10;
+    return Math.min(100, (Number.parseFloat(savingsInfo.balance) / goal) * 100);
+  };
 
   const calculateLoanProgress = () => {
-    if (!loanInfo || loanInfo.repaid || !loanInfo.dueDate) return 0
-    const now = new Date()
-    const dueDate = new Date(loanInfo.dueDate)
-    const loanDuration = 30 * 24 * 60 * 60 * 1000 // 30 days
-    const elapsed = now - (dueDate - loanDuration)
-    return Math.min(100, (elapsed / loanDuration) * 100)
-  }
+    if (!loanInfo || loanInfo.repaid || !loanInfo.dueDate) return 0;
+    const now = new Date();
+    const dueDate = new Date(loanInfo.dueDate);
+    const loanDuration = 30 * 24 * 60 * 60 * 1000;
+    const elapsed = now - (dueDate - loanDuration);
+    return Math.min(100, (elapsed / loanDuration) * 100);
+  };
 
   const formatDate = (timestamp) => {
-    if (!timestamp) return "N/A"
+    if (!timestamp) return "N/A";
     return new Date(timestamp).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    })
-  }
+    });
+  };
 
   const getExplorerLink = (txHash) => {
-    return `https://explorer.celo.org/mainnet/tx/${txHash}`
-  }
+    return `https://explorer.celo.org/mainnet/tx/${txHash}`;
+  };
 
   if (isLoading) {
     return (
@@ -99,7 +102,7 @@ export default function Dashboard() {
           <p className="text-gray-500 dark:text-gray-400">Loading dashboard...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error || !walletAddress) {
@@ -109,10 +112,10 @@ export default function Dashboard() {
         <p className="text-gray-500 dark:text-gray-400 mb-6">{error || "Please connect your wallet"}</p>
         <Button
           onClick={async () => {
-            const result = await connectWallet()
+            const result = await connectWallet();
             if (result.success) {
-              setWalletAddress(result.address)
-              await loadUserData(result.address)
+              setWalletAddress(result.address);
+              await loadUserData(result.address);
             }
           }}
           className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
@@ -120,7 +123,7 @@ export default function Dashboard() {
           Connect Wallet
         </Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -133,6 +136,26 @@ export default function Dashboard() {
               <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">
                 Manage your healthcare savings and loans
               </p>
+              {!isVerified && (
+                <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300">
+                  <div className="flex items-start">
+                    <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Verification Required</p>
+                      <p>
+                        Please verify your identity to access loans and other features.{" "}
+                        <Button
+                          variant="link"
+                          className="p-0 text-blue-600 dark:text-blue-400"
+                          onClick={() => router.push("/verify")}
+                        >
+                          Verify Now
+                        </Button>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -195,9 +218,9 @@ export default function Dashboard() {
                     onClick={() => router.push("/loans#repay-tab")}
                     variant="outline"
                     className="w-full text-sm sm:text-base"
-                    disabled={!loanInfo || loanInfo.repaid}
+                    disabled={!loanInfo || loanInfo.repaid || !isVerified}
                   >
-                    Repay Loan
+                    {isVerified ? "Repay Loan" : "Verify to Access Loans"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -357,6 +380,22 @@ export default function Dashboard() {
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
                         <div className="mb-2 sm:mb-0">
+                          <p className="font-medium">Verification Status</p>
+                          <p className="text-sm text-gray-500">{isVerified ? "Verified" : "Not Verified"}</p>
+                        </div>
+                        {!isVerified && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto"
+                            onClick={() => router.push("/verify")}
+                          >
+                            Verify Now
+                          </Button>
+                        )}
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+                        <div className="mb-2 sm:mb-0">
                           <p className="font-medium">Notifications</p>
                           <p className="text-sm text-gray-500">Receive alerts for important updates</p>
                         </div>
@@ -382,5 +421,5 @@ export default function Dashboard() {
         </div>
       </main>
     </div>
-  )
+  );
 }

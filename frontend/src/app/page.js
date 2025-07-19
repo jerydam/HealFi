@@ -139,23 +139,28 @@ export default function Home() {
               <h3 className="text-lg font-medium mb-4 text-white">Product</h3>
               <ul className="space-y-2 text-sm">
                 <li>
-                  <Link href="#" className="hover:text-white">
+                  <Link href="/savings" className="hover:text-white">
                     Savings
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-white">
+                  <Link href="/loans" className="hover:text-white">
                     Loans
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-white">
+                  <Link href="/partners" className="hover:text-white">
                     Healthcare Partners
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-white">
+                  <Link href="/tokens" className="hover:text-white">
                     Tokens
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/metrics" className="hover:text-white">
+                    Metrics
                   </Link>
                 </li>
               </ul>
@@ -207,7 +212,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-sm text-center">
-            <p>&copy; {new Date().getFullYear()} HealFi. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} HealFi. All rights reserved.</p>
           </div>
         </div>
       </footer>

@@ -1,154 +1,139 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowUp, ArrowDown, TrendingUp, Calendar, Info, Loader2, ExternalLink } from "lucide-react"
-import { connectWallet, getSavingsInfo, deposit, withdraw, getUSDTBalance, getSavingsTransactions } from "@/lib/web3"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowUp, ArrowDown, TrendingUp, Calendar, Info, Loader2, ExternalLink, AlertCircle } from "lucide-react";
+import { connectWallet, getSavingsInfo, deposit, withdraw, getUSDTBalance, getSavingsTransactions } from "@/lib/web3";
 
 export default function SavingsPage() {
-  const [walletAddress, setWalletAddress] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const [savingsInfo, setSavingsInfo] = useState(null)
-  const [usdtBalance, setUsdtBalance] = useState("0")
-  const [depositAmount, setDepositAmount] = useState("")
-  const [withdrawAmount, setWithdrawAmount] = useState("")
-  const [isDepositing, setIsDepositing] = useState(false)
-  const [isWithdrawing, setIsWithdrawing] = useState(false)
-  const [transactions, setTransactions] = useState([]) // New state for transaction history
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const router = useRouter();
+  const [walletAddress, setWalletAddress] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isVerified, setIsVerified] = useState(false);
+  const [savingsInfo, setSavingsInfo] = useState(null);
+  const [usdtBalance, setUsdtBalance] = useState("0");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [transactions, setTransactions] = useState([]);
+  const [isDepositing, setIsDepositing] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const initWallet = async () => {
       try {
-        const result = await connectWallet()
+        const result = await connectWallet();
         if (result.success) {
-          setWalletAddress(result.address)
-          loadUserData(result.address)
+          setWalletAddress(result.address);
+          const verificationStatus = localStorage.getItem(`verification_${result.address}`);
+          setIsVerified(verificationStatus === "true");
+          await loadUserData(result.address);
         } else {
-          setIsLoading(false)
+          setError("Please connect your wallet");
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Error initializing wallet:", error)
-        setIsLoading(false)
+      } catch (err) {
+        setError("Error connecting wallet");
+        setIsLoading(false);
       }
-    }
+    };
 
-    initWallet()
-  }, [])
+    initWallet();
+  }, []);
 
   const loadUserData = async (address) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const savings = await getSavingsInfo(address)
+      const savings = await getSavingsInfo(address);
       if (!savings) {
-        window.location.href = "/register"
-        return
+        router.push("/register");
+        return;
       }
-      setSavingsInfo(savings)
-      const balance = await getUSDTBalance(address)
-      setUsdtBalance(balance)
-      // Fetch transaction history
-      const txs = await getSavingsTransactions(address)
-      setTransactions(txs.slice(0, 5)) // Limit to 5 most recent transactions
-    } catch (error) {
-      console.error("Error loading user data:", error)
-      setError("Error loading data")
+      setSavingsInfo(savings);
+      const balance = await getUSDTBalance(address);
+      setUsdtBalance(balance);
+      const txs = await getSavingsTransactions(address);
+      setTransactions(txs.slice(0, 5)); // Limit to 5 recent transactions
+    } catch (err) {
+      setError("Error loading savings data");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleDeposit = async () => {
     if (!depositAmount || Number.parseFloat(depositAmount) <= 0) {
-      setError("Please enter a valid deposit amount")
-      return
+      setError("Please enter a valid deposit amount");
+      return;
     }
-    setIsDepositing(true)
-    setError("")
-    setSuccess("")
+    setIsDepositing(true);
+    setError("");
+    setSuccess("");
     try {
-      const result = await deposit(depositAmount)
+      const result = await deposit(depositAmount);
       if (result.success) {
-        setSuccess("Deposit successful!")
-        setDepositAmount("")
-        await loadUserData(walletAddress)
+        setSuccess("Deposit successful!");
+        setDepositAmount("");
+        await loadUserData(walletAddress);
       } else {
-        setError(result.error)
+        setError(result.error);
       }
     } catch (error) {
-      setError("Failed to deposit. Please try again.")
-      console.error(error)
+      setError("Failed to deposit. Please try again.");
+      console.error(error);
     } finally {
-      setIsDepositing(false)
+      setIsDepositing(false);
     }
-  }
+  };
 
   const handleWithdraw = async () => {
     if (!withdrawAmount || Number.parseFloat(withdrawAmount) <= 0) {
-      setError("Please enter a valid withdrawal amount")
-      return
+      setError("Please enter a valid withdrawal amount");
+      return;
     }
-    if (savingsInfo && Number.parseFloat(withdrawAmount) > Number.parseFloat(savingsInfo.balance)) {
-      setError("Withdrawal amount exceeds your balance")
-      return
+    if (Number.parseFloat(withdrawAmount) > Number.parseFloat(savingsInfo?.balance || 0)) {
+      setError("Insufficient savings balance");
+      return;
     }
-    setIsWithdrawing(true)
-    setError("")
-    setSuccess("")
+    setIsWithdrawing(true);
+    setError("");
+    setSuccess("");
     try {
-      const result = await withdraw(withdrawAmount)
+      const result = await withdraw(withdrawAmount);
       if (result.success) {
-        setSuccess("Withdrawal successful!")
-        setWithdrawAmount("")
-        await loadUserData(walletAddress)
+        setSuccess("Withdrawal successful!");
+        setWithdrawAmount("");
+        await loadUserData(walletAddress);
       } else {
-        setError(result.error)
+        setError(result.error);
       }
     } catch (error) {
-      setError("Failed to withdraw. Please try again.")
-      console.error(error)
+      setError("Failed to withdraw. Please try again.");
+      console.error(error);
     } finally {
-      setIsWithdrawing(false)
+      setIsWithdrawing(false);
     }
-  }
+  };
 
   const formatDate = (timestamp) => {
-    if (!timestamp) return "N/A"
+    if (!timestamp) return "N/A";
     return new Date(timestamp).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    })
-  }
-
-  const calculateProgress = () => {
-    if (!savingsInfo) return 0
-    const goal = 10
-    return Math.min(100, Math.max(0, (Number.parseFloat(savingsInfo.balance) / goal) * 100))
-  }
-
-  const getAccountTypeName = (accountType) => {
-    if (accountType === 0) return "Individual"
-    if (accountType === 1) return "Family"
-    return "Unknown"
-  }
-
-  const getPlanTypeName = (planType) => {
-    if (planType === 0) return "Basic"
-    if (planType === 1) return "Premium"
-    return "Unknown"
-  }
+    });
+  };
 
   const getExplorerLink = (txHash) => {
-    // Assuming Celo blockchain; adjust for your network
-    return `https://explorer.celo.org/mainnet/tx/${txHash}`
-  }
+    return `https://explorer.celo.org/mainnet/tx/${txHash}`;
+  };
 
   if (isLoading) {
     return (
@@ -158,22 +143,22 @@ export default function SavingsPage() {
           <p className="text-gray-500 dark:text-gray-400">Loading savings information...</p>
         </div>
       </div>
-    )
+    );
   }
 
-  if (!walletAddress) {
+  if (error || !walletAddress) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-12">
         <div className="max-w-md mx-auto text-center">
-          <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+          <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
           <h2 className="text-2xl font-bold mb-2 dark:text-white">Connect Your Wallet</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">Please connect your wallet to access savings features</p>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">{error || "Please connect your wallet to access savings features"}</p>
           <Button
             onClick={async () => {
-              const result = await connectWallet()
+              const result = await connectWallet();
               if (result.success) {
-                setWalletAddress(result.address)
-                loadUserData(result.address)
+                setWalletAddress(result.address);
+                await loadUserData(result.address);
               }
             }}
             className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
@@ -182,27 +167,7 @@ export default function SavingsPage() {
           </Button>
         </div>
       </div>
-    )
-  }
-
-  if (!savingsInfo) {
-    return (
-      <div className="container mx-auto px-4 md:px-6 py-12">
-        <div className="max-w-md mx-auto text-center">
-          <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
-          <h2 className="text-2xl font-bold mb-2 dark:text-white">No Savings Account Found</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">
-            You need to register an individual or family account to start saving
-          </p>
-          <Button
-            onClick={() => (window.location.href = "/register")}
-            className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-          >
-            Register Now
-          </Button>
-        </div>
-      </div>
-    )
+    );
   }
 
   return (
@@ -210,103 +175,110 @@ export default function SavingsPage() {
       <div className="flex flex-col space-y-6 sm:space-y-8">
         <div className="flex flex-col space-y-2">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight dark:text-white">Your Savings</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">
-            Manage your healthcare savings account
-          </p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">Manage your healthcare savings</p>
+          {!isVerified && (
+            <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300">
+              <div className="flex items-start">
+                <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Verification Recommended</p>
+                  <p>
+                    Verify your identity to access loans and other features.{" "}
+                    <Button
+                      variant="link"
+                      className="p-0 text-blue-600 dark:text-blue-400"
+                      onClick={() => router.push("/verify")}
+                    >
+                      Verify Now
+                    </Button>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="dark:text-white">Savings Overview</CardTitle>
-              <CardDescription className="dark:text-gray-400">Your current savings and progress</CardDescription>
+              <CardDescription className="dark:text-gray-400">Your current savings balance and progress</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2">
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Balance</span>
                   <span className="text-2xl sm:text-3xl font-bold dark:text-white">
-                    {Number.parseFloat(savingsInfo.balance).toFixed(2)} USDT
+                    {savingsInfo ? Number.parseFloat(savingsInfo.balance).toFixed(2) : "0.00"} USDT
                   </span>
                 </div>
                 <div className="flex items-center text-sm text-green-600 dark:text-green-400">
                   <TrendingUp className="mr-1 h-4 w-4" />
-                  <span>
-                    {getAccountTypeName(savingsInfo.accountType)} Account • {getPlanTypeName(savingsInfo.planType)} Plan
-                  </span>
+                  <span>{savingsInfo?.hstEarned || 0} HST earned</span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="dark:text-gray-300">Savings Goal: 10 USDT</span>
-                  <span className="dark:text-gray-300">{calculateProgress().toFixed(0)}% Complete</span>
+                  <span className="dark:text-gray-300">
+                    {savingsInfo ? (Math.min(100, (Number.parseFloat(savingsInfo.balance) / 10) * 100)).toFixed(0) : 0}%
+                  </span>
                 </div>
-                <div className="h-2 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-green-600 dark:bg-green-500 rounded-full"
-                    style={{ width: `${calculateProgress()}%` }}
-                  ></div>
-                </div>
+                <Progress
+                  value={savingsInfo ? Math.min(100, (Number.parseFloat(savingsInfo.balance) / 10) * 100) : 0}
+                  className="h-2"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 sm:p-4">
                   <div className="flex items-center space-x-2">
                     <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 dark:text-gray-400" />
-                    <span className="text-sm font-medium dark:text-gray-300">Savings Streak</span>
+                    <span className="text-sm font-medium dark:text-gray-300">Last Deposit</span>
                   </div>
-                  <p className="mt-2 text-xl sm:text-2xl font-bold dark:text-white">{savingsInfo.streak} Weeks</p>
+                  <p className="mt-2 text-xl sm:text-2xl font-bold dark:text-white">
+                    {savingsInfo?.lastDeposit ? Number.parseFloat(savingsInfo.lastDeposit).toFixed(2) : "0.00"} USDT
+                  </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Last deposit: {formatDate(savingsInfo.lastDepositTime)}
+                    {savingsInfo?.lastDepositTime ? formatDate(savingsInfo.lastDepositTime) : "N/A"}
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 sm:p-4">
                   <div className="flex items-center space-x-2">
                     <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 dark:text-gray-400" />
-                    <span className="text-sm font-medium dark:text-gray-300">HST Earned</span>
+                    <span className="text-sm font-medium dark:text-gray-300">Total Contributions</span>
                   </div>
-                  <p className="mt-2 text-xl sm:text-2xl font-bold dark:text-white">{savingsInfo.hstEarned} HST</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Earn more by saving regularly</p>
+                  <p className="mt-2 text-xl sm:text-2xl font-bold dark:text-white">
+                    {savingsInfo?.totalContributions ? Number.parseFloat(savingsInfo.totalContributions).toFixed(2) : "0.00"} USDT
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Since account creation</p>
                 </div>
               </div>
 
-              {savingsInfo.accountType === 1 && (
-                <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4">
-                  <div className="flex items-start">
-                    <Info className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium dark:text-blue-300">Family Treasury</p>
-                      <p className="text-sm text-blue-800 dark:text-blue-300">
-                        Family ID: {savingsInfo.familyId} • Balance:{" "}
-                        {Number.parseFloat(savingsInfo.familyTreasuryBalance).toFixed(2)} USDT
-                      </p>
-                    </div>
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 text-sm text-blue-800 dark:text-blue-300">
+                <div className="flex items-start">
+                  <Info className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">Savings Benefits:</p>
+                    <ul className="list-disc list-inside mt-1 space-y-1">
+                      <li>Earn HST tokens for consistent savings</li>
+                      <li>Access to microloans after verification</li>
+                      <li>Use savings at partner healthcare facilities</li>
+                      <li>Build your healthcare financial safety net</li>
+                    </ul>
                   </div>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="dark:text-white">Quick Actions</CardTitle>
-              <CardDescription className="dark:text-gray-400">Manage your savings</CardDescription>
+              <CardTitle className="dark:text-white">Account Status</CardTitle>
+              <CardDescription className="dark:text-gray-400">Your savings eligibility and balance</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button
-                className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-sm sm:text-base"
-                onClick={() => document.getElementById("deposit-tab").click()}
-              >
-                <ArrowUp className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Add Savings
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full text-sm sm:text-base dark:border-gray-700 dark:text-gray-200"
-                onClick={() => document.getElementById("withdraw-tab").click()}
-              >
-                <ArrowDown className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Withdraw
-              </Button>
               <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 sm:p-4">
                 <div className="flex items-center space-x-2">
                   <span className="text-sm font-medium dark:text-gray-300">USDT Balance</span>
@@ -316,26 +288,43 @@ export default function SavingsPage() {
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Available for deposits</p>
               </div>
+
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 sm:p-4">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium dark:text-gray-300">Verification Status</span>
+                </div>
+                <p className="mt-2 text-xl sm:text-2xl font-bold dark:text-white">{isVerified ? "Verified" : "Not Verified"}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {isVerified ? "Full access to all features" : "Verify to unlock loans"}
+                </p>
+              </div>
+
+              {!isVerified && (
+                <Button
+                  onClick={() => router.push("/verify")}
+                  className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+                >
+                  Verify Identity
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        <Tabs defaultValue="deposit" className="w-full">
+        <Tabs defaultValue="deposit" id="deposit-tab" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="deposit" id="deposit-tab" className="text-xs sm:text-sm">
+            <TabsTrigger value="deposit" className="text-xs sm:text-sm">
               Deposit
             </TabsTrigger>
-            <TabsTrigger value="withdraw" id="withdraw-tab" className="text-xs sm:text-sm">
+            <TabsTrigger value="withdraw" className="text-xs sm:text-sm">
               Withdraw
             </TabsTrigger>
           </TabsList>
           <TabsContent value="deposit" className="mt-4 sm:mt-6">
             <Card>
               <CardHeader>
-                <CardTitle className="dark:text-white">Add to Your Savings</CardTitle>
-                <CardDescription className="dark:text-gray-400">
-                  Deposit USDT to grow your healthcare fund
-                </CardDescription>
+                <CardTitle className="dark:text-white">Deposit to Savings</CardTitle>
+                <CardDescription className="dark:text-gray-400">Add funds to your healthcare savings</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
@@ -349,34 +338,22 @@ export default function SavingsPage() {
                     onChange={(e) => setDepositAmount(e.target.value)}
                     className="dark:border-gray-700"
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Minimum deposit: 0.1 USDT. Available balance: {Number.parseFloat(usdtBalance).toFixed(2)} USDT
+                  </p>
                 </div>
 
-                <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="dark:text-gray-300">Amount</span>
-                    <span className="dark:text-gray-300">{Number.parseFloat(depositAmount || 0).toFixed(2)} USDT</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="dark:text-gray-300">Transaction Fee</span>
-                    <span className="dark:text-gray-300">
-                      {(Number.parseFloat(depositAmount || 0) * 0.01).toFixed(2)} USDT
-                    </span>
-                  </div>
-                  <div className="border-t dark:border-gray-700 pt-2 mt-2 flex justify-between font-medium">
-                    <span className="dark:text-white">Total</span>
-                    <span className="dark:text-white">
-                      {(Number.parseFloat(depositAmount || 0) * 1.01).toFixed(2)} USDT
-                    </span>
-                  </div>
-                </div>
-
-                <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 text-sm text-blue-800 dark:text-blue-300">
+                <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 text-sm text-green-800 dark:text-green-300">
                   <div className="flex items-start">
-                    <Info className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                    <p>
-                      Regular deposits increase your savings streak and earn you HST tokens.
-                      {savingsInfo.streak >= 3 && " You're on a streak! Keep it up to earn bonus tokens."}
-                    </p>
+                    <TrendingUp className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Deposit Benefits:</p>
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        <li>Earn HST tokens for deposits</li>
+                        <li>Increase your loan eligibility</li>
+                        <li>Funds available for healthcare expenses</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -392,7 +369,7 @@ export default function SavingsPage() {
                       Processing...
                     </>
                   ) : (
-                    "Save Now"
+                    "Deposit Now"
                   )}
                 </Button>
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
@@ -403,8 +380,8 @@ export default function SavingsPage() {
           <TabsContent value="withdraw" className="mt-4 sm:mt-6">
             <Card>
               <CardHeader>
-                <CardTitle className="dark:text-white">Withdraw Savings</CardTitle>
-                <CardDescription className="dark:text-gray-400">Access your funds when you need them</CardDescription>
+                <CardTitle className="dark:text-white">Withdraw from Savings</CardTitle>
+                <CardDescription className="dark:text-gray-400">Access your saved funds</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
@@ -414,43 +391,26 @@ export default function SavingsPage() {
                     placeholder="0.00"
                     min="0.1"
                     step="0.1"
-                    max={savingsInfo.balance}
                     value={withdrawAmount}
                     onChange={(e) => setWithdrawAmount(e.target.value)}
                     className="dark:border-gray-700"
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Available balance: {savingsInfo ? Number.parseFloat(savingsInfo.balance).toFixed(2) : "0.00"} USDT
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="dark:text-gray-300">Available Balance</span>
-                    <span className="dark:text-gray-300">{Number.parseFloat(savingsInfo.balance).toFixed(2)} USDT</span>
-                  </div>
-                </div>
-                <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="dark:text-gray-300">Amount</span>
-                    <span className="dark:text-gray-300">{Number.parseFloat(withdrawAmount || 0).toFixed(2)} USDT</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="dark:text-gray-300">Transaction Fee</span>
-                    <span className="dark:text-gray-300">
-                      {(Number.parseFloat(withdrawAmount || 0) * 0.01).toFixed(2)} USDT
-                    </span>
-                  </div>
-                  <div className="border-t dark:border-gray-700 pt-2 mt-2 flex justify-between font-medium">
-                    <span className="dark:text-white">Total to Receive</span>
-                    <span className="dark:text-white">
-                      {(Number.parseFloat(withdrawAmount || 0) * 0.99).toFixed(2)} USDT
-                    </span>
-                  </div>
-                </div>
+
                 <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300">
                   <div className="flex items-start">
                     <Info className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
-                    <p>
-                      Withdrawing may affect your loan eligibility and reset your savings streak. Only withdraw when
-                      necessary for healthcare expenses.
-                    </p>
+                    <div>
+                      <p className="font-medium">Withdrawal Notice:</p>
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        <li>Withdrawals may affect loan eligibility</li>
+                        <li>Ensure sufficient balance for healthcare needs</li>
+                        <li>Processing may take a few minutes</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -461,10 +421,9 @@ export default function SavingsPage() {
                     isWithdrawing ||
                     !withdrawAmount ||
                     Number.parseFloat(withdrawAmount) <= 0 ||
-                    Number.parseFloat(withdrawAmount) > Number.parseFloat(savingsInfo.balance)
+                    Number.parseFloat(withdrawAmount) > Number.parseFloat(savingsInfo?.balance || 0)
                   }
-                  variant="outline"
-                  className="w-full dark:border-gray-700 dark:text-gray-200"
+                  className="w-full bg-orange-600 hover:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-700"
                 >
                   {isWithdrawing ? (
                     <>
@@ -472,7 +431,7 @@ export default function SavingsPage() {
                       Processing...
                     </>
                   ) : (
-                    "Withdraw Funds"
+                    "Withdraw Now"
                   )}
                 </Button>
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
@@ -484,8 +443,8 @@ export default function SavingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="dark:text-white">Transaction History</CardTitle>
-            <CardDescription className="dark:text-gray-400">Your recent savings activities</CardDescription>
+            <CardTitle className="dark:text-white">Savings History</CardTitle>
+            <CardDescription className="dark:text-gray-400">Your recent deposits and withdrawals</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -512,10 +471,7 @@ export default function SavingsPage() {
                         </div>
                       </div>
                       <div className="mt-2 sm:mt-0 sm:text-right">
-                        <p className="font-medium dark:text-white">
-                          {tx.type === "Deposit" ? "+" : "-"}
-                          {Number.parseFloat(tx.amount).toFixed(2)} USDT
-                        </p>
+                        <p className="font-medium dark:text-white">{Number.parseFloat(tx.amount).toFixed(2)} USDT</p>
                         <a
                           href={getExplorerLink(tx.txHash)}
                           target="_blank"
@@ -543,5 +499,5 @@ export default function SavingsPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

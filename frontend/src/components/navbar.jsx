@@ -12,7 +12,6 @@ export default function Navbar() {
   const [mounted, setMounted] = useState(false)
   const { theme, setTheme } = useTheme()
 
-  // Wait until mounted to avoid hydration mismatch
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -63,6 +62,12 @@ export default function Navbar() {
             Tokens
           </Link>
           <Link
+            href="/metrics"
+            className="text-sm font-medium hover:text-green-600 dark:hover:text-green-500 transition-colors"
+          >
+            Metrics
+          </Link>
+          <Link
             href="/register"
             className="text-sm font-medium hover:text-green-600 dark:hover:text-green-500 transition-colors"
           >
@@ -97,7 +102,6 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu */}
       {isMenuOpen && (
         <div className="fixed inset-0 top-16 z-50 bg-background md:hidden overflow-y-auto">
           <div className="container py-6 flex flex-col gap-4">
@@ -137,13 +141,20 @@ export default function Navbar() {
               Tokens
             </Link>
             <Link
-              href="/voting"
+              href="/metrics"
               className="text-base font-medium hover:text-green-600 dark:hover:text-green-500 transition-colors py-2"
               onClick={() => setIsMenuOpen(false)}
             >
-              Voting
+              Metrics
             </Link>
-            <WalletConnectButton />
+            <Link
+              href="/register"
+              className="text-base font-medium hover:text-green-600 dark:hover:text-green-500 transition-colors py-2"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Register
+            </Link>
+            <WalletConnectButton/>
           </div>
         </div>
       )}

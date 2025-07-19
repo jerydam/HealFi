@@ -1,157 +1,174 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CreditCard, Calendar, Clock, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
-import { checkLoanEligibility, applyForLoan, repayLoan, stakeGuarantor, getLoanInfo, getUSDTBalance, connectWallet } from "@/lib/web3"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CreditCard, Calendar, Clock, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { checkLoanEligibility, applyForLoan, repayLoan, stakeGuarantor, getLoanInfo, getUSDTBalance, connectWallet } from "@/lib/web3";
 
 export default function LoansPage() {
-  const [walletAddress, setWalletAddress] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const [isEligible, setIsEligible] = useState(false)
-  const [loanInfo, setLoanInfo] = useState(null)
-  const [usdtBalance, setUsdtBalance] = useState("0")
-  const [loanAmount, setLoanAmount] = useState("")
-  const [repayAmount, setRepayAmount] = useState("")
-  const [guarantorAddress, setGuarantorAddress] = useState("")
-  const [isApplying, setIsApplying] = useState(false)
-  const [isRepaying, setIsRepaying] = useState(false)
-  const [isStaking, setIsStaking] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const router = useRouter();
+  const [walletAddress, setWalletAddress] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isVerified, setIsVerified] = useState(false);
+  const [isEligible, setIsEligible] = useState(false);
+  const [loanInfo, setLoanInfo] = useState(null);
+  const [usdtBalance, setUsdtBalance] = useState("0");
+  const [loanAmount, setLoanAmount] = useState("");
+  const [repayAmount, setRepayAmount] = useState("");
+  const [guarantorAddress, setGuarantorAddress] = useState("");
+  const [isApplying, setIsApplying] = useState(false);
+  const [isRepaying, setIsRepaying] = useState(false);
+  const [isStaking, setIsStaking] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const initWallet = async () => {
       try {
-        const result = await connectWallet()
+        const result = await connectWallet();
         if (result.success) {
-          setWalletAddress(result.address)
-          loadUserData(result.address)
+          setWalletAddress(result.address);
+          const verificationStatus = localStorage.getItem(`verification_${result.address}`);
+          setIsVerified(verificationStatus === "true");
+          await loadUserData(result.address);
         } else {
-          setIsLoading(false)
+          setIsLoading(false);
         }
       } catch (error) {
-        console.error("Error initializing wallet:", error)
-        setIsLoading(false)
+        console.error("Error initializing wallet:", error);
+        setIsLoading(false);
       }
-    }
+    };
 
-    initWallet()
-  }, [])
+    initWallet();
+  }, []);
 
   const loadUserData = async (address) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const eligible = await checkLoanEligibility(address)
-      setIsEligible(eligible)
-      const loan = await getLoanInfo(address)
-      setLoanInfo(loan)
-      const balance = await getUSDTBalance(address)
-      setUsdtBalance(balance)
+      const eligible = await checkLoanEligibility(address);
+      setIsEligible(eligible && isVerified); // Only eligible if verified
+      const loan = await getLoanInfo(address);
+      setLoanInfo(loan);
+      const balance = await getUSDTBalance(address);
+      setUsdtBalance(balance);
       if (loan && !loan.repaid && loan.amount) {
-        const totalDue = Number.parseFloat(loan.amount) + Number.parseFloat(loan.interest)
-        setRepayAmount(totalDue.toString())
+        const totalDue = Number.parseFloat(loan.amount) + Number.parseFloat(loan.interest);
+        setRepayAmount(totalDue.toString());
       }
     } catch (error) {
-      console.error("Error loading user data:", error)
+      console.error("Error loading user data:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleApplyLoan = async () => {
-    if (!loanAmount || Number.parseFloat(loanAmount) <= 0) {
-      setError("Please enter a valid loan amount")
-      return
+    if (!isVerified) {
+      setError("You must verify your identity before applying for a loan.");
+      return;
     }
-    setIsApplying(true)
-    setError("")
-    setSuccess("")
+    if (!loanAmount || Number.parseFloat(loanAmount) <= 0) {
+      setError("Please enter a valid loan amount");
+      return;
+    }
+    setIsApplying(true);
+    setError("");
+    setSuccess("");
     try {
-      const result = await applyForLoan(loanAmount)
+      const result = await applyForLoan(loanAmount);
       if (result.success) {
-        setSuccess("Loan application successful!")
-        setLoanAmount("")
-        await loadUserData(walletAddress)
+        setSuccess("Loan application successful!");
+        setLoanAmount("");
+        await loadUserData(walletAddress);
       } else {
-        setError(result.error)
+        setError(result.error);
       }
     } catch (error) {
-      setError("Failed to apply for loan. Please try again.")
-      console.error(error)
+      setError("Failed to apply for loan. Please try again.");
+      console.error(error);
     } finally {
-      setIsApplying(false)
+      setIsApplying(false);
     }
-  }
+  };
 
   const handleRepayLoan = async () => {
-    if (!repayAmount || Number.parseFloat(repayAmount) <= 0) {
-      setError("Please enter a valid repayment amount")
-      return
+    if (!isVerified) {
+      setError("You must verify your identity to manage loans.");
+      return;
     }
-    setIsRepaying(true)
-    setError("")
-    setSuccess("")
+    if (!repayAmount || Number.parseFloat(repayAmount) <= 0) {
+      setError("Please enter a valid repayment amount");
+      return;
+    }
+    setIsRepaying(true);
+    setError("");
+    setSuccess("");
     try {
-      const result = await repayLoan(repayAmount)
+      const result = await repayLoan(repayAmount);
       if (result.success) {
-        setSuccess("Loan repayment successful!")
-        setRepayAmount("")
-        await loadUserData(walletAddress)
+        setSuccess("Loan repayment successful!");
+        setRepayAmount("");
+        await loadUserData(walletAddress);
       } else {
-        setError(result.error)
+        setError(result.error);
       }
     } catch (error) {
-      setError("Failed to repay loan. Please try again.")
-      console.error(error)
+      setError("Failed to repay loan. Please try again.");
+      console.error(error);
     } finally {
-      setIsRepaying(false)
+      setIsRepaying(false);
     }
-  }
+  };
 
   const handleStakeGuarantor = async () => {
-    if (!guarantorAddress || !guarantorAddress.startsWith("0x")) {
-      setError("Please enter a valid guarantor address")
-      return
+    if (!isVerified) {
+      setError("You must verify your identity to add a guarantor.");
+      return;
     }
-    setIsStaking(true)
-    setError("")
-    setSuccess("")
+    if (!guarantorAddress || !guarantorAddress.startsWith("0x")) {
+      setError("Please enter a valid guarantor address");
+      return;
+    }
+    setIsStaking(true);
+    setError("");
+    setSuccess("");
     try {
-      const result = await stakeGuarantor(walletAddress, guarantorAddress)
+      const result = await stakeGuarantor(walletAddress, guarantorAddress);
       if (result.success) {
-        setSuccess("Guarantor staked successfully!")
-        setGuarantorAddress("")
-        await loadUserData(walletAddress)
+        setSuccess("Guarantor staked successfully!");
+        setGuarantorAddress("");
+        await loadUserData(walletAddress);
       } else {
-        setError(result.error)
+        setError(result.error);
       }
     } catch (error) {
-      setError("Failed to stake guarantor. Please try again.")
-      console.error(error)
+      setError("Failed to stake guarantor. Please try again.");
+      console.error(error);
     } finally {
-      setIsStaking(false)
+      setIsStaking(false);
     }
-  }
+  };
 
   const calculateProgress = () => {
-    if (!loanInfo || loanInfo.repaid || !loanInfo.dueDate) return 0
-    const now = new Date()
-    const dueDate = new Date(loanInfo.dueDate)
-    const loanDuration = 30 * 24 * 60 * 60 * 1000
-    const elapsed = now - (dueDate - loanDuration)
-    return Math.min(100, Math.max(0, (elapsed / loanDuration) * 100))
-  }
+    if (!loanInfo || loanInfo.repaid || !loanInfo.dueDate) return 0;
+    const now = new Date();
+    const dueDate = new Date(loanInfo.dueDate);
+    const loanDuration = 30 * 24 * 60 * 60 * 1000;
+    const elapsed = now - (dueDate - loanDuration);
+    return Math.min(100, Math.max(0, (elapsed / loanDuration) * 100));
+  };
 
   const formatDate = (date) => {
-    if (!date) return "N/A"
-    return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-  }
+    if (!date) return "N/A";
+    return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  };
 
   if (isLoading) {
     return (
@@ -161,7 +178,7 @@ export default function LoansPage() {
           <p className="text-gray-500 dark:text-gray-400">Loading loan information...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (!walletAddress) {
@@ -173,10 +190,10 @@ export default function LoansPage() {
           <p className="text-gray-500 dark:text-gray-400 mb-6">Please connect your wallet to access loan features</p>
           <Button
             onClick={async () => {
-              const result = await connectWallet()
+              const result = await connectWallet();
               if (result.success) {
-                setWalletAddress(result.address)
-                loadUserData(result.address)
+                setWalletAddress(result.address);
+                loadUserData(result.address);
               }
             }}
             className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
@@ -185,7 +202,7 @@ export default function LoansPage() {
           </Button>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -194,6 +211,26 @@ export default function LoansPage() {
         <div className="flex flex-col space-y-2">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight dark:text-white">Your Loans</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">Manage your healthcare microloans</p>
+          {!isVerified && (
+            <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300">
+              <div className="flex items-start">
+                <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Verification Required</p>
+                  <p>
+                    You must verify your identity to access loan features.{" "}
+                    <Button
+                      variant="link"
+                      className="p-0 text-blue-600 dark:text-blue-400"
+                      onClick={() => router.push("/verify")}
+                    >
+                      Verify Now
+                    </Button>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -276,13 +313,15 @@ export default function LoansPage() {
                   <p className="text-gray-500 dark:text-gray-400 mb-4">
                     You don't have any active loans at the moment.
                   </p>
-                  {isEligible ? (
+                  {isVerified && isEligible ? (
                     <p className="text-green-600 dark:text-green-400 font-medium">
                       You are eligible to apply for a loan!
                     </p>
                   ) : (
                     <p className="text-orange-600 dark:text-orange-400">
-                      Continue saving to become eligible for a loan.
+                      {isVerified
+                        ? "Continue saving to become eligible for a loan."
+                        : "Please verify your identity to apply for a loan."}
                     </p>
                   )}
                 </div>
@@ -292,13 +331,17 @@ export default function LoansPage() {
               <CardFooter>
                 <Button
                   onClick={() => {
-                    const totalDue = Number.parseFloat(loanInfo.amount) + Number.parseFloat(loanInfo.interest)
-                    setRepayAmount(totalDue.toString())
-                    document.getElementById("repay-tab").click()
+                    if (!isVerified) {
+                      router.push("/verify");
+                      return;
+                    }
+                    const totalDue = Number.parseFloat(loanInfo.amount) + Number.parseFloat(loanInfo.interest);
+                    setRepayAmount(totalDue.toString());
+                    document.getElementById("repay-tab").click();
                   }}
                   className="w-full bg-orange-600 hover:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-700 text-sm sm:text-base"
                 >
-                  Repay Loan
+                  {isVerified ? "Repay Loan" : "Verify to Repay Loan"}
                 </Button>
               </CardFooter>
             )}
@@ -315,7 +358,7 @@ export default function LoansPage() {
                   <span className="text-sm font-medium dark:text-gray-300">Maximum Loan Amount</span>
                 </div>
                 <p className="mt-2 text-xl sm:text-2xl font-bold dark:text-white">
-                  {isEligible ? "5.00 USDT" : "0.00 USDT"}
+                  {isVerified && isEligible ? "5.00 USDT" : "0.00 USDT"}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Based on your savings history</p>
               </div>
@@ -337,7 +380,7 @@ export default function LoansPage() {
                     <p>You have an active loan. New loans are available after repayment.</p>
                   </div>
                 </div>
-              ) : isEligible ? (
+              ) : isVerified && isEligible ? (
                 <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 text-sm text-green-800 dark:text-green-300">
                   <div className="flex items-start">
                     <CheckCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
@@ -348,7 +391,11 @@ export default function LoansPage() {
                 <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300">
                   <div className="flex items-start">
                     <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
-                    <p>Continue saving to become eligible for a loan.</p>
+                    <p>
+                      {isVerified
+                        ? "Continue saving to become eligible for a loan."
+                        : "Please verify your identity to access loan features."}
+                    </p>
                   </div>
                 </div>
               )}
@@ -386,7 +433,7 @@ export default function LoansPage() {
                     step="0.1"
                     value={repayAmount}
                     onChange={(e) => setRepayAmount(e.target.value)}
-                    disabled={!loanInfo || loanInfo.repaid || Number.parseFloat(loanInfo?.amount || 0) <= 0}
+                    disabled={!loanInfo || loanInfo.repaid || Number.parseFloat(loanInfo?.amount || 0) <= 0 || !isVerified}
                     className="dark:border-gray-700"
                   />
                 </div>
@@ -416,7 +463,7 @@ export default function LoansPage() {
                   </div>
                 )}
 
-                {loanInfo && !loanInfo.repaid && Number.parseFloat(loanInfo.amount) > 0 && (
+                {loanInfo && !loanInfo.repaid && Number.parseFloat(loanInfo.amount) > 0 && isVerified && (
                   <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 text-sm text-green-800 dark:text-green-300">
                     <div className="flex items-start">
                       <CheckCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
@@ -427,7 +474,7 @@ export default function LoansPage() {
               </CardContent>
               <CardFooter className="flex flex-col">
                 <Button
-                  onClick={handleRepayLoan}
+                  onClick={isVerified ? handleRepayLoan : () => router.push("/verify")}
                   disabled={
                     isRepaying ||
                     !loanInfo ||
@@ -443,8 +490,10 @@ export default function LoansPage() {
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Processing...
                     </>
-                  ) : (
+                  ) : isVerified ? (
                     "Confirm Repayment"
+                  ) : (
+                    "Verify to Repay"
                   )}
                 </Button>
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
@@ -466,6 +515,13 @@ export default function LoansPage() {
                       <p>You have an active loan. New loans are available after repayment.</p>
                     </div>
                   </div>
+                ) : !isVerified ? (
+                  <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300">
+                    <div className="flex items-start">
+                      <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                      <p>Please verify your identity to apply for a loan.</p>
+                    </div>
+                  </div>
                 ) : !isEligible ? (
                   <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300">
                     <div className="flex items-start">
@@ -485,14 +541,14 @@ export default function LoansPage() {
                     max="5.00"
                     value={loanAmount}
                     onChange={(e) => setLoanAmount(e.target.value)}
-                    disabled={!isEligible || (loanInfo && !loanInfo.repaid && Number.parseFloat(loanInfo.amount) > 0)}
+                    disabled={!isVerified || !isEligible || (loanInfo && !loanInfo.repaid && Number.parseFloat(loanInfo.amount) > 0)}
                     className="dark:border-gray-700"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium dark:text-gray-300">Loan Duration</label>
                   <Select
-                    disabled={!isEligible || (loanInfo && !loanInfo.repaid && Number.parseFloat(loanInfo.amount) > 0)}
+                    disabled={!isVerified || !isEligible || (loanInfo && !loanInfo.repaid && Number.parseFloat(loanInfo.amount) > 0)}
                     defaultValue="30"
                   >
                     <SelectTrigger className="dark:bg-gray-800 dark:border-gray-700">
@@ -506,7 +562,7 @@ export default function LoansPage() {
                   </Select>
                 </div>
 
-                {isEligible && (!loanInfo || loanInfo.repaid || Number.parseFloat(loanInfo.amount) <= 0) && (
+                {isVerified && isEligible && (!loanInfo || loanInfo.repaid || Number.parseFloat(loanInfo.amount) <= 0) && (
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 text-sm text-blue-800 dark:text-blue-300">
                     <div className="flex items-start">
                       <CheckCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
@@ -525,9 +581,10 @@ export default function LoansPage() {
               </CardContent>
               <CardFooter className="flex flex-col">
                 <Button
-                  onClick={handleApplyLoan}
+                  onClick={isVerified ? handleApplyLoan : () => router.push("/verify")}
                   disabled={
                     isApplying ||
+                    !isVerified ||
                     !isEligible ||
                     (loanInfo && !loanInfo.repaid && Number.parseFloat(loanInfo.amount) > 0) ||
                     !loanAmount ||
@@ -540,8 +597,10 @@ export default function LoansPage() {
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Processing...
                     </>
-                  ) : (
+                  ) : isVerified ? (
                     "Request Loan"
+                  ) : (
+                    "Verify to Request Loan"
                   )}
                 </Button>
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
@@ -565,6 +624,7 @@ export default function LoansPage() {
                     value={guarantorAddress}
                     onChange={(e) => setGuarantorAddress(e.target.value)}
                     disabled={
+                      !isVerified ||
                       !isEligible ||
                       (loanInfo &&
                         loanInfo.guarantor &&
@@ -589,7 +649,7 @@ export default function LoansPage() {
                       </div>
                     </div>
                   </div>
-                ) : (
+                ) : isVerified ? (
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 text-sm text-blue-800 dark:text-blue-300">
                     <div className="flex items-start">
                       <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
@@ -603,13 +663,21 @@ export default function LoansPage() {
                       </div>
                     </div>
                   </div>
+                ) : (
+                  <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300">
+                    <div className="flex items-start">
+                      <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                      <p>Please verify your identity to add a guarantor.</p>
+                    </div>
+                  </div>
                 )}
               </CardContent>
               <CardFooter className="flex flex-col">
                 <Button
-                  onClick={handleStakeGuarantor}
+                  onClick={isVerified ? handleStakeGuarantor : () => router.push("/verify")}
                   disabled={
                     isStaking ||
+                    !isVerified ||
                     !isEligible ||
                     (loanInfo &&
                       loanInfo.guarantor &&
@@ -624,8 +692,10 @@ export default function LoansPage() {
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Processing...
                     </>
-                  ) : (
+                  ) : isVerified ? (
                     "Add Guarantor"
+                  ) : (
+                    "Verify to Add Guarantor"
                   )}
                 </Button>
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
@@ -655,5 +725,5 @@ export default function LoansPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
