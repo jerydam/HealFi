@@ -1,9 +1,8 @@
 import "@/app/globals.css";
-import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import Navbar from "@/components/navbar";
 
-const inter = Inter({ subsets: ["latin"] });
+
 
 export const metadata = {
   title: "HealFi - Healthcare Savings & Microloans",
@@ -73,7 +72,7 @@ export default function RootLayout({ children }) {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className={`${inter.className} min-h-screen flex flex-col bg-background text-foreground antialiased`}>
+      <body className={` min-h-screen flex flex-col bg-background text-foreground antialiased`}>
         <ThemeProvider 
           defaultTheme="light" 
           attribute="class"
