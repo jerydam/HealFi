@@ -112,3 +112,10 @@ A: You can buy it with local currency through a CELO exchange or ask someone to 
 HealFi isn’t just a tool—it’s a movement to make healthcare fair and affordable for everyone. Start saving today, support your neighbors, and help shape a healthier future. Together, we can make a difference—one USDT at a time!
 
 ---
+usdt:0x5fc0a70dcec9516309cd226e713a6ee813ebb45e
+feemanage:0x17cfed7fece35a9a71d60fbb5ca52237103a21fb
+hst:0x0dccdb296965da6aa85c375446f0e8bcc3ec6d1e
+saving:0x1f383dfb3370eed5a7f685c5606ac6983595a37f
+loan:0x79798892210059ec0253adc3ccb5fc0afbb228cc
+multisig:0x8535a780278303e7aafb32277c07a3bff9dec470
+donor:0xe3c46ad1f88bc10a8eb419a496e342a28085b894

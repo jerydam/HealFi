@@ -1,14 +1,15 @@
-import "@/app/globals.css"
-import { Inter } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
-import Navbar from "@/components/navbar"
 
-const inter = Inter({ subsets: ["latin"] })
+import "@/app/globals.css";
+import { Inter } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
+import Navbar from "@/components/navbar";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "HealFi - Healthcare Savings & Microloans",
   description: "Save for healthcare, access microloans, and connect with trusted healthcare providers.",
-}
+};
 
 export default function RootLayout({ children }) {
   return (
@@ -22,5 +23,5 @@ export default function RootLayout({ children }) {
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
