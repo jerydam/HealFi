@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "npm install --legacy-peer-deps --force && next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -41,11 +41,19 @@
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
     "tailwindcss": "^4"
-  
   },
   "overrides": {
     "@selfxyz/qrcode": {
-      "react": "$react"
+      "react": "$react",
+      "react-dom": "$react-dom"
+    },
+    "@selfxyz/core": {
+      "react": "$react",
+      "react-dom": "$react-dom"
     }
+  },
+  "resolutions": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   }
 }
