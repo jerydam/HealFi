@@ -1,11 +1,46 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Heart, Shield, Wallet, CreditCard, Users, ChevronRight } from "lucide-react"
+"use client";
+
+import Link from "next/link";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Heart, Shield, Wallet, CreditCard, Users, ChevronRight } from "lucide-react";
+import { connectWallet, getPlatformMetrics } from "@/lib/web3";
 
 export default function Home() {
+  const [metrics, setMetrics] = useState({
+    totalSavings: "0",
+    totalLoansDisbursed: "0",
+    totalUsers: 0,
+  });
+
+  useEffect(() => {
+    const loadMetrics = async () => {
+      try {
+        const platformMetrics = await getPlatformMetrics();
+        setMetrics(platformMetrics);
+      } catch (error) {
+        console.error("Error loading platform metrics:", error);
+      }
+    };
+    loadMetrics();
+  }, []);
+
+  const handleConnectWallet = async () => {
+    try {
+      const result = await connectWallet();
+      if (result.success) {
+        window.location.href = "/dashboard";
+      } else {
+        alert("Failed to connect wallet. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error connecting wallet:", error);
+      alert("Error connecting wallet.");
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Hero Section */}
       <section className="bg-gradient-to-b from-green-50 to-white dark:from-gray-900 dark:to-gray-950 dark:text-white py-12 md:py-24">
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex flex-col items-center space-y-4 text-center">
@@ -24,6 +59,7 @@ export default function Home() {
               <Button
                 size="lg"
                 className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 w-full sm:w-auto"
+                onClick={handleConnectWallet}
               >
                 Connect Wallet
                 <Wallet className="ml-2 h-4 w-4" />
@@ -37,7 +73,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats Section */}
       <section className="py-12 bg-white dark:bg-gray-900">
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
@@ -45,28 +80,27 @@ export default function Home() {
               <div className="rounded-full bg-green-100 dark:bg-green-900/30 p-3 mb-4">
                 <Wallet className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold dark:text-white">500+</h3>
-              <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base text-center">Total Savings (USDT)</p>
+              <h3 className="text-xl sm:text-2xl font-bold dark:text-white">{Number.parseFloat(metrics.totalSavings).toFixed(2)} USDT</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base text-center">Total Savings</p>
             </div>
             <div className="flex flex-col items-center p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
               <div className="rounded-full bg-orange-100 dark:bg-orange-900/30 p-3 mb-4">
                 <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600 dark:text-orange-400" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold dark:text-white">200+</h3>
+              <h3 className="text-xl sm:text-2xl font-bold dark:text-white">{Number.parseFloat(metrics.totalLoansDisbursed).toFixed(2)} USDT</h3>
               <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base text-center">Loans Provided</p>
             </div>
             <div className="flex flex-col items-center p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
               <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-3 mb-4">
                 <Users className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold dark:text-white">1,000+</h3>
+              <h3 className="text-xl sm:text-2xl font-bold dark:text-white">{metrics.totalUsers}</h3>
               <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base text-center">Community Members</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
       <section className="py-12 md:py-24 bg-gray-50 dark:bg-gray-950">
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex flex-col items-center space-y-4 text-center mb-8 sm:mb-12">
@@ -107,7 +141,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
       <section className="py-12 md:py-24 bg-green-600 dark:bg-green-700 text-white">
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex flex-col items-center space-y-4 text-center">
@@ -117,14 +150,18 @@ export default function Home() {
             <p className="max-w-[700px] text-green-50 text-sm sm:text-base">
               Join thousands of others who are taking control of their healthcare finances with HealFi.
             </p>
-            <Button size="lg" variant="secondary" className="mt-4 w-full sm:w-auto">
+            <Button
+              size="lg"
+              variant="secondary"
+              className="mt-4 w-full sm:w-auto"
+              onClick={handleConnectWallet}
+            >
               Get Started Now
             </Button>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="py-6 bg-gray-900 dark:bg-gray-950 text-gray-300">
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
@@ -217,5 +254,5 @@ export default function Home() {
         </div>
       </footer>
     </div>
-  )
+  );
 }

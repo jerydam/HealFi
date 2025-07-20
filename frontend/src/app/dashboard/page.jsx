@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, CreditCard, Heart, ArrowUpRight, Plus, Clock, CheckCircle, Loader2, ExternalLink, AlertCircle } from "lucide-react";
+import { Wallet, CreditCard, Heart, ArrowUpRight, Plus, Clock, CheckCircle, Loader2, ExternalLink, AlertCircle, ShieldCheck } from "lucide-react";
 import { connectWallet, getSavingsInfo, getLoanInfo, getHSTBalance, getUserActivities } from "@/lib/web3";
 
 export default function Dashboard() {
@@ -51,14 +51,17 @@ export default function Dashboard() {
         return;
       }
       setSavingsInfo(savings);
+      
       const loan = await getLoanInfo(address);
       setLoanInfo(loan);
+      
       const balance = await getHSTBalance(address);
       setHstBalance(balance);
+      
       const userActivities = await getUserActivities(address);
       setActivities(userActivities.slice(0, 5));
     } catch (err) {
-      setError("Error loading user data");
+      setError("Error loading user data: " + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +94,7 @@ export default function Dashboard() {
   };
 
   const getExplorerLink = (txHash) => {
-    return `https://explorer.celo.org/mainnet/tx/${txHash}`;
+    return `https://alfajores.celoscan.io/tx/${txHash}`;
   };
 
   if (isLoading) {
@@ -136,23 +139,32 @@ export default function Dashboard() {
               <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">
                 Manage your healthcare savings and loans
               </p>
-              {!isVerified && (
-                <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300">
+              
+              {/* Verification Status Banner */}
+              {!isVerified ? (
+                <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
                   <div className="flex items-start">
                     <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium">Verification Required</p>
-                      <p>
-                        Please verify your identity to access loans and other features.{" "}
+                      <p className="mt-1">
+                        Please verify your identity to access loans and withdrawals.{" "}
                         <Button
                           variant="link"
-                          className="p-0 text-blue-600 dark:text-blue-400"
+                          className="p-0 text-orange-700 dark:text-orange-300 underline h-auto"
                           onClick={() => router.push("/verify")}
                         >
                           Verify Now
                         </Button>
                       </p>
                     </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 text-sm text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800">
+                  <div className="flex items-center">
+                    <ShieldCheck className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
+                    <p className="font-medium">Identity Verified ✓</p>
                   </div>
                 </div>
               )}
@@ -169,7 +181,7 @@ export default function Dashboard() {
                     {savingsInfo ? Number.parseFloat(savingsInfo.balance).toFixed(2) : "0.00"} USDT
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {savingsInfo?.hstEarned || 0} HST earned
+                    {savingsInfo ? Number.parseFloat(savingsInfo.hstEarned).toFixed(2) : "0.00"} HST earned
                   </p>
                   <div className="mt-4">
                     <div className="flex justify-between text-xs mb-1">
@@ -181,7 +193,7 @@ export default function Dashboard() {
                 </CardContent>
                 <CardFooter>
                   <Button
-                    onClick={() => router.push("/savings#deposit-tab")}
+                    onClick={() => router.push("/savings")}
                     className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-sm sm:text-base"
                   >
                     <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Add Savings
@@ -195,17 +207,17 @@ export default function Dashboard() {
                   <CreditCard className="h-4 w-4 text-orange-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">
+                  <div className="text-xl sm:text-2xl font-bold dark:text-white">
                     {loanInfo && !loanInfo.repaid ? Number.parseFloat(loanInfo.amount).toFixed(2) : "0.00"} USDT
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {loanInfo && !loanInfo.repaid && loanInfo.dueDate
                       ? `Due on ${new Date(loanInfo.dueDate).toLocaleDateString("en-US")}`
                       : "No active loan"}
                   </p>
                   {loanInfo && !loanInfo.repaid && (
                     <>
-                      <div className="mt-4 flex items-center text-xs text-gray-500">
+                      <div className="mt-4 flex items-center text-xs text-gray-500 dark:text-gray-400">
                         <Clock className="mr-1 h-3 w-3" />
                         <span>Repayment Progress</span>
                       </div>
@@ -215,12 +227,12 @@ export default function Dashboard() {
                 </CardContent>
                 <CardFooter>
                   <Button
-                    onClick={() => router.push("/loans#repay-tab")}
+                    onClick={() => router.push("/loans")}
                     variant="outline"
                     className="w-full text-sm sm:text-base"
-                    disabled={!loanInfo || loanInfo.repaid || !isVerified}
+                    disabled={!isVerified}
                   >
-                    {isVerified ? "Repay Loan" : "Verify to Access Loans"}
+                    {isVerified ? (loanInfo && !loanInfo.repaid ? "Manage Loan" : "Apply for Loan") : "Verify to Access Loans"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -231,11 +243,11 @@ export default function Dashboard() {
                   <Heart className="h-4 w-4 text-red-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">{Number.parseFloat(hstBalance).toFixed(2)} HST</div>
-                  <p className="text-xs text-gray-500">Health Support Tokens</p>
-                  <div className="mt-4 text-xs text-gray-500">
+                  <div className="text-xl sm:text-2xl font-bold dark:text-white">{Number.parseFloat(hstBalance).toFixed(2)} HST</div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Health Support Tokens</p>
+                  <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
                     <div className="flex items-center">
-                      <CheckCircle className="mr-1 h-3 w-3 text-green-600" />
+                      <CheckCircle className="mr-1 h-3 w-3 text-green-600 dark:text-green-400" />
                       <span>Eligible for discounts</span>
                     </div>
                   </div>
@@ -274,7 +286,7 @@ export default function Dashboard() {
                     <div className="space-y-4">
                       {activities.length === 0 ? (
                         <p className="text-gray-500 dark:text-gray-400 text-center">
-                          No activities found. Start by registering or making a deposit!
+                          No activities found. Start by making a deposit!
                         </p>
                       ) : (
                         <ul className="space-y-4">
@@ -288,7 +300,7 @@ export default function Dashboard() {
                                   <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                                 ) : activity.type === "Deposit" ? (
                                   <Plus className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                ) : activity.type === "Withdraw" ? (
+                                ) : activity.type === "Withdrawal" ? (
                                   <ArrowUpRight className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                                 ) : activity.type.includes("Loan") ? (
                                   <CreditCard className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
@@ -306,14 +318,16 @@ export default function Dashboard() {
                               </div>
                               <div className="mt-2 sm:mt-0 sm:text-right">
                                 <p className="font-medium dark:text-white">{activity.details}</p>
-                                <a
-                                  href={getExplorerLink(activity.txHash)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center"
-                                >
-                                  View on Explorer <ExternalLink className="ml-1 h-3 w-3" />
-                                </a>
+                                {activity.txHash && (
+                                  <a
+                                    href={getExplorerLink(activity.txHash)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center"
+                                  >
+                                    View on Explorer <ExternalLink className="ml-1 h-3 w-3" />
+                                  </a>
+                                )}
                               </div>
                             </li>
                           ))}
@@ -325,7 +339,7 @@ export default function Dashboard() {
                     <Button
                       variant="outline"
                       className="w-full dark:border-gray-700 dark:text-gray-200"
-                      onClick={() => alert("View all activities not implemented yet")}
+                      onClick={() => router.push("/activities")}
                     >
                       View All Activities
                     </Button>
@@ -366,22 +380,27 @@ export default function Dashboard() {
                     <div className="space-y-4">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
                         <div className="mb-2 sm:mb-0">
-                          <p className="font-medium">Connected Wallet</p>
-                          <p className="text-sm text-gray-500">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</p>
+                          <p className="font-medium dark:text-white">Connected Wallet</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</p>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
                           className="w-full sm:w-auto"
-                          onClick={() => setWalletAddress("")} // Disconnect wallet
+                          onClick={() => {
+                            setWalletAddress("");
+                            router.push("/");
+                          }}
                         >
                           Disconnect
                         </Button>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
                         <div className="mb-2 sm:mb-0">
-                          <p className="font-medium">Verification Status</p>
-                          <p className="text-sm text-gray-500">{isVerified ? "Verified" : "Not Verified"}</p>
+                          <p className="font-medium dark:text-white">Verification Status</p>
+                          <p className={`text-sm ${isVerified ? 'text-green-500' : 'text-orange-500'}`}>
+                            {isVerified ? "✓ Verified" : "⚠ Not Verified"}
+                          </p>
                         </div>
                         {!isVerified && (
                           <Button
@@ -396,8 +415,8 @@ export default function Dashboard() {
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
                         <div className="mb-2 sm:mb-0">
-                          <p className="font-medium">Notifications</p>
-                          <p className="text-sm text-gray-500">Receive alerts for important updates</p>
+                          <p className="font-medium dark:text-white">Notifications</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Receive alerts for important updates</p>
                         </div>
                         <Button variant="outline" size="sm" className="w-full sm:w-auto">
                           Configure
@@ -405,8 +424,8 @@ export default function Dashboard() {
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                         <div className="mb-2 sm:mb-0">
-                          <p className="font-medium">Language</p>
-                          <p className="text-sm text-gray-500">Currently set to English</p>
+                          <p className="font-medium dark:text-white">Language</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Currently set to English</p>
                         </div>
                         <Button variant="outline" size="sm" className="w-full sm:w-auto">
                           Change

@@ -19,7 +19,7 @@ export default function TokensPage() {
         const result = await connectWallet()
         if (result.success) {
           setWalletAddress(result.address)
-          loadUserData(result.address)
+          await loadUserData(result.address)
         } else {
           setIsLoading(false)
           setError("Please connect your wallet")
@@ -41,7 +41,7 @@ export default function TokensPage() {
       setHstBalance(balance)
     } catch (error) {
       console.error("Error loading token data:", error)
-      setError("Error loading token data")
+      setError("Error loading token data: " + error.message)
     } finally {
       setIsLoading(false)
     }
@@ -53,10 +53,10 @@ export default function TokensPage() {
     try {
       // Placeholder: Implement token swap logic with smart contract
       // Example: await swapHSTForUSDT(amount)
-      setSuccess("Token swap initiated! (Placeholder)")
+      setSuccess("Token swap initiated! (Feature coming soon)")
       await loadUserData(walletAddress)
     } catch (error) {
-      setError("Failed to swap tokens. Please try again.")
+      setError("Failed to swap tokens: " + error.message)
       console.error(error)
     }
   }
@@ -67,10 +67,10 @@ export default function TokensPage() {
     try {
       // Placeholder: Implement clinic usage logic with smart contract
       // Example: await useHSTAtClinic(amount, clinicAddress)
-      setSuccess("Token usage at clinic initiated! (Placeholder)")
+      setSuccess("Token usage at clinic initiated! (Feature coming soon)")
       await loadUserData(walletAddress)
     } catch (error) {
-      setError("Failed to use tokens at clinic. Please try again.")
+      setError("Failed to use tokens at clinic: " + error.message)
       console.error(error)
     }
   }
@@ -98,7 +98,7 @@ export default function TokensPage() {
               const result = await connectWallet()
               if (result.success) {
                 setWalletAddress(result.address)
-                loadUserData(result.address)
+                await loadUserData(result.address)
               }
             }}
             className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
@@ -166,9 +166,15 @@ export default function TokensPage() {
               <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 text-sm text-blue-800 dark:text-blue-300">
                 <div className="flex items-start">
                   <CheckCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                  <p>
-                    HST tokens can be used for discounts at partner healthcare providers or swapped for USDT to cover other expenses.
-                  </p>
+                  <div>
+                    <p className="font-medium">How to Use HST Tokens:</p>
+                    <ul className="list-disc list-inside mt-1 space-y-1">
+                      <li>Get discounts at partner healthcare providers</li>
+                      <li>Swap for USDT to cover other expenses</li>
+                      <li>Use for premium features (coming soon)</li>
+                      <li>Stake for additional rewards (coming soon)</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -208,12 +214,26 @@ export default function TokensPage() {
               >
                 <Repeat className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Swap Tokens
               </Button>
+              
               <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 sm:p-4">
                 <div className="flex items-center space-x-2">
                   <span className="text-sm font-medium dark:text-gray-300">Token Value</span>
                 </div>
                 <p className="mt-2 text-xl sm:text-2xl font-bold dark:text-white">1 HST ≈ 0.1 USDT</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Estimated value based on current rates</p>
+              </div>
+
+              <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-3 sm:p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Heart className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <span className="text-sm font-medium text-green-800 dark:text-green-300">Earning HST</span>
+                </div>
+                <ul className="text-xs text-green-700 dark:text-green-300 space-y-1">
+                  <li>• Daily deposits: +10 HST</li>
+                  <li>• Loan repayment: +50 HST</li>
+                  <li>• Savings streak: +5 HST/day</li>
+                  <li>• Referrals: +25 HST</li>
+                </ul>
               </div>
             </CardContent>
           </Card>
@@ -227,13 +247,29 @@ export default function TokensPage() {
           <CardContent>
             <div className="space-y-4">
               <p className="text-gray-500 dark:text-gray-400 text-center">
-                Token transaction history not implemented yet
+                Token transaction history feature coming soon. For now, you can track your HST earnings through your savings activities.
               </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{Number.parseFloat(hstBalance).toFixed(0)}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total HST</p>
+                </div>
+                <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">0</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Used HST</p>
+                </div>
+                <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    ${(Number.parseFloat(hstBalance) * 0.1).toFixed(2)}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Est. Value</p>
+                </div>
+              </div>
             </div>
           </CardContent>
           <CardFooter>
             <Button variant="outline" className="w-full dark:border-gray-700 dark:text-gray-200">
-              View All Transactions
+              View All Transactions (Coming Soon)
             </Button>
           </CardFooter>
         </Card>

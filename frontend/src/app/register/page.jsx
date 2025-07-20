@@ -1,44 +1,47 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Heart, Users, User, Plus, Trash } from "lucide-react";
-import { registerIndividual, registerFamily } from "@/lib/web3";
-import { useRouter } from "next/navigation";
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Heart, Users, User, Plus, Trash, ShieldCheck } from "lucide-react"
+import { registerIndividual, registerFamily, connectWallet } from "@/lib/web3"
+import { useRouter } from "next/navigation"
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const router = useRouter()
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
 
   // Individual registration state
-  const [individualPlan, setIndividualPlan] = useState("0"); // 0 = Basic, 1 = Premium
+  const [individualPlan, setIndividualPlan] = useState("0") // 0 = Basic, 1 = Premium
+  const [detailsHash, setDetailsHash] = useState("")
+  const [referrer, setReferrer] = useState("")
 
   // Family registration state
-  const [familyPlan, setFamilyPlan] = useState("0");
-  const [familyMembers, setFamilyMembers] = useState([""]);
+  const [familyPlan, setFamilyPlan] = useState("0")
+  const [familyMembers, setFamilyMembers] = useState([{ address: "", detailsHash: "" }])
+  const [familyName, setFamilyName] = useState("")
 
   const handleAddFamilyMember = () => {
-    setFamilyMembers([...familyMembers, ""]);
-  };
+    setFamilyMembers([...familyMembers, { address: "", detailsHash: "" }])
+  }
 
   const handleRemoveFamilyMember = (index) => {
-    const updatedMembers = [...familyMembers];
-    updatedMembers.splice(index, 1);
-    setFamilyMembers(updatedMembers);
-  };
+    const updatedMembers = [...familyMembers]
+    updatedMembers.splice(index, 1)
+    setFamilyMembers(updatedMembers)
+  }
 
-  const handleFamilyMemberChange = (index, value) => {
-    const updatedMembers = [...familyMembers];
-    updatedMembers[index] = value;
-    setFamilyMembers(updatedMembers);
-  };
+  const handleFamilyMemberChange = (index, field, value) => {
+    const updatedMembers = [...familyMembers]
+    updatedMembers[index][field] = value
+    setFamilyMembers(updatedMembers)
+  }
 
   const handleIndividualRegistration = async () => {
     setIsRegistering(true);
@@ -46,18 +49,35 @@ export default function RegisterPage() {
     setSuccess("");
 
     try {
-      const result = await registerIndividual(Number.parseInt(individualPlan));
+      // Validate inputs
+      if (!detailsHash || detailsHash.length < 40) {
+        setError("Please provide a valid details hash (minimum 40 characters).");
+        setIsRegistering(false);
+        return;
+      }
+      
+      const referrerAddress = referrer && referrer.match(/^0x[a-fA-F0-9]{40}$/) ? referrer : "0x0000000000000000000000000000000000000000";
+
+      // Connect wallet first
+      const walletResult = await connectWallet();
+      if (!walletResult.success) {
+        setError("Failed to connect wallet: " + walletResult.error);
+        setIsRegistering(false);
+        return;
+      }
+
+      const result = await registerIndividual(Number.parseInt(individualPlan), detailsHash, referrerAddress);
       if (result.success) {
         setSuccess("Registration successful! Redirecting to verification...");
         setTimeout(() => {
           router.push("/verify");
         }, 2000);
       } else {
-        setError(result.error);
+        setError(result.error || "Registration failed. Please try again.");
       }
     } catch (error) {
-      setError("Registration failed. Please try again.");
-      console.error(error);
+      setError("Registration failed: " + error.message);
+      console.error("Error registering individual:", error);
     } finally {
       setIsRegistering(false);
     }
@@ -68,27 +88,45 @@ export default function RegisterPage() {
     setError("");
     setSuccess("");
 
-    // Validate family members
-    const validMembers = familyMembers.filter((member) => member.trim() !== "");
-    if (validMembers.length < 2) {
-      setError("Please add at least 2 valid family members");
-      setIsRegistering(false);
-      return;
-    }
-
     try {
-      const result = await registerFamily(validMembers, Number.parseInt(familyPlan));
+      // Validate family members
+      const validMembers = familyMembers.filter((member) => 
+        member.address.match(/^0x[a-fA-F0-9]{40}$/) && 
+        member.detailsHash && member.detailsHash.length >= 40
+      );
+      
+      if (validMembers.length < 2) {
+        setError("Please add at least 2 valid family members with addresses and details hashes.");
+        setIsRegistering(false);
+        return;
+      }
+      
+      if (!familyName.trim()) {
+        setError("Please provide a family name.");
+        setIsRegistering(false);
+        return;
+      }
+
+      // Connect wallet first
+      const walletResult = await connectWallet();
+      if (!walletResult.success) {
+        setError("Failed to connect wallet: " + walletResult.error);
+        setIsRegistering(false);
+        return;
+      }
+
+      const result = await registerFamily(validMembers, Number.parseInt(familyPlan), familyName, "0x0000000000000000000000000000000000000000");
       if (result.success) {
         setSuccess("Family registration successful! Redirecting to verification...");
         setTimeout(() => {
           router.push("/verify");
         }, 2000);
       } else {
-        setError(result.error);
+        setError(result.error || "Family registration failed. Please try again.");
       }
     } catch (error) {
-      setError("Registration failed. Please try again.");
-      console.error(error);
+      setError("Registration failed: " + error.message);
+      console.error("Error registering family:", error);
     } finally {
       setIsRegistering(false);
     }
@@ -102,6 +140,12 @@ export default function RegisterPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-2">
             Choose your account type and start your healthcare savings journey
           </p>
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center justify-center text-blue-800 dark:text-blue-300">
+              <ShieldCheck className="mr-2 h-5 w-5" />
+              <p className="text-sm">After registration, you'll be redirected to verify your identity</p>
+            </div>
+          </div>
         </div>
 
         <Tabs defaultValue="individual" className="w-full">
@@ -126,6 +170,34 @@ export default function RegisterPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="detailsHash">Details Hash (IPFS CID)</Label>
+                    <Input
+                      id="detailsHash"
+                      placeholder="Enter your details hash (e.g., QmYourIPFSHash...)"
+                      value={detailsHash}
+                      onChange={(e) => setDetailsHash(e.target.value)}
+                      className="dark:border-gray-700"
+                    />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      This should be an IPFS hash containing your personal details (minimum 40 characters)
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="referrer">Referrer Address (Optional)</Label>
+                    <Input
+                      id="referrer"
+                      placeholder="0x... (optional)"
+                      value={referrer}
+                      onChange={(e) => setReferrer(e.target.value)}
+                      className="dark:border-gray-700"
+                    />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Enter the wallet address of who referred you (optional)
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Select Plan Type</Label>
                     <RadioGroup
@@ -166,7 +238,7 @@ export default function RegisterPage() {
                     <ul className="list-disc list-inside space-y-1">
                       <li>Save for healthcare expenses</li>
                       <li>Earn HST tokens for consistent savings</li>
-                      <li>Access to microloans when needed (after verification)</li>
+                      <li>Access to microloans when needed</li>
                       <li>Discounts at partner healthcare facilities</li>
                       {individualPlan === "1" && (
                         <>
@@ -204,6 +276,17 @@ export default function RegisterPage() {
               <CardContent>
                 <div className="space-y-6">
                   <div className="space-y-2">
+                    <Label htmlFor="familyName">Family Name</Label>
+                    <Input
+                      id="familyName"
+                      placeholder="Enter your family name"
+                      value={familyName}
+                      onChange={(e) => setFamilyName(e.target.value)}
+                      className="dark:border-gray-700"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label>Select Plan Type</Label>
                     <RadioGroup
                       defaultValue="0"
@@ -239,25 +322,34 @@ export default function RegisterPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <Label>Family Members (Wallet Addresses)</Label>
+                    <Label>Family Members</Label>
                     {familyMembers.map((member, index) => (
-                      <div key={index} className="flex items-center gap-2">
+                      <div key={index} className="space-y-2 p-4 border rounded-lg dark:border-gray-700">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm">Member {index + 1}</Label>
+                          {index > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveFamilyMember(index)}
+                              className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 ml-auto"
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                         <Input
-                          placeholder="0x..."
-                          value={member}
-                          onChange={(e) => handleFamilyMemberChange(index, e.target.value)}
-                          className="flex-1 dark:border-gray-700"
+                          placeholder="Wallet Address (0x...)"
+                          value={member.address}
+                          onChange={(e) => handleFamilyMemberChange(index, "address", e.target.value)}
+                          className="dark:border-gray-700"
                         />
-                        {index > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveFamilyMember(index)}
-                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <Input
+                          placeholder="Details Hash (IPFS CID, minimum 40 characters)"
+                          value={member.detailsHash}
+                          onChange={(e) => handleFamilyMemberChange(index, "detailsHash", e.target.value)}
+                          className="dark:border-gray-700"
+                        />
                       </div>
                     ))}
                     <Button
@@ -274,7 +366,7 @@ export default function RegisterPage() {
                     <p className="font-medium mb-2">Family Plan Benefits:</p>
                     <ul className="list-disc list-inside space-y-1">
                       <li>Pool resources for family healthcare needs</li>
-                      <li>Shared savings and loan eligibility (after verification)</li>
+                      <li>Shared savings and loan eligibility</li>
                       <li>Family treasury for emergency healthcare</li>
                       <li>Discounts at partner healthcare facilities</li>
                       {familyPlan === "1" && (
@@ -304,5 +396,5 @@ export default function RegisterPage() {
         </Tabs>
       </div>
     </div>
-  );
+  )
 }
