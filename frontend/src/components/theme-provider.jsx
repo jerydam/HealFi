@@ -6,56 +6,112 @@ import { createContext, useContext, useEffect, useState } from "react"
 const ThemeProviderContext = createContext({
   theme: "light",
   setTheme: () => null,
+  toggleTheme: () => null,
+  systemTheme: "light",
+  resolvedTheme: "light",
 })
 
-export function ThemeProvider({ children, defaultTheme = "light", storageKey = "theme", ...props }) {
+export function ThemeProvider({ 
+  children, 
+  defaultTheme = "light", 
+  storageKey = "healfi-theme", 
+  enableSystem = true,
+  ...props 
+}) {
   const [theme, setTheme] = useState(defaultTheme)
+  const [systemTheme, setSystemTheme] = useState("light")
   const [mounted, setMounted] = useState(false)
 
   // Only run this effect on the client
   useEffect(() => {
     setMounted(true)
 
+    // Get system preference
+    const getSystemTheme = () => {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+    }
+
+    const currentSystemTheme = getSystemTheme()
+    setSystemTheme(currentSystemTheme)
+
     // Initialize theme from localStorage or system preference
     if (storageKey) {
       const savedTheme = localStorage.getItem(storageKey)
-      if (savedTheme) {
+      if (savedTheme && (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system")) {
         setTheme(savedTheme)
+      } else if (enableSystem) {
+        setTheme("system")
       } else {
-        // Check for system preference if no saved theme
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-        setTheme(prefersDark ? "dark" : "light")
+        setTheme(currentSystemTheme)
       }
     }
-  }, [storageKey])
+
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+    const handleChange = (e) => {
+      const newSystemTheme = e.matches ? "dark" : "light"
+      setSystemTheme(newSystemTheme)
+    }
+
+    mediaQuery.addEventListener("change", handleChange)
+    return () => mediaQuery.removeEventListener("change", handleChange)
+  }, [storageKey, enableSystem])
+
+  // Resolve the actual theme to apply
+  const resolvedTheme = theme === "system" ? systemTheme : theme
 
   useEffect(() => {
     if (!mounted) return
 
     const root = window.document.documentElement
 
-    // Remove the previous theme class
+    // Remove all theme classes
     root.classList.remove("light", "dark")
 
-    // Add the current theme class
-    root.classList.add(theme)
+    // Add the resolved theme class
+    root.classList.add(resolvedTheme)
 
     // Store the theme preference
     if (storageKey) {
       localStorage.setItem(storageKey, theme)
     }
-  }, [theme, storageKey, mounted])
+
+    // Update meta theme-color for mobile browsers
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute('content', resolvedTheme === 'dark' ? '#0f172a' : '#ffffff')
+    }
+  }, [theme, resolvedTheme, storageKey, mounted])
 
   // Avoid rendering with incorrect theme on first mount
   if (!mounted) {
-    return <>{children}</>
+    return <div style={{ visibility: 'hidden' }}>{children}</div>
+  }
+
+  const toggleTheme = () => {
+    if (enableSystem) {
+      if (theme === "light") {
+        setTheme("dark")
+      } else if (theme === "dark") {
+        setTheme("system")
+      } else {
+        setTheme("light")
+      }
+    } else {
+      setTheme(theme === "light" ? "dark" : "light")
+    }
   }
 
   const value = {
     theme,
+    systemTheme,
+    resolvedTheme,
     setTheme: (newTheme) => {
-      setTheme(newTheme)
+      if (newTheme === "light" || newTheme === "dark" || (enableSystem && newTheme === "system")) {
+        setTheme(newTheme)
+      }
     },
+    toggleTheme,
   }
 
   return (
