@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Wallet, CreditCard, Heart, ArrowUpRight, Plus, Clock, CheckCircle, Loader2, ExternalLink, AlertCircle, ShieldCheck } from "lucide-react";
 import { connectWallet, getSavingsInfo, getLoanInfo, getHSTBalance, getUserActivities } from "@/lib/web3";
 
@@ -86,7 +87,7 @@ export default function Dashboard() {
     if (!timestamp) return "N/A";
     return new Date(timestamp).toLocaleDateString("en-US", {
       year: "numeric",
-      month: "long",
+      month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
@@ -95,6 +96,35 @@ export default function Dashboard() {
 
   const getExplorerLink = (txHash) => {
     return `https://alfajores.celoscan.io/tx/${txHash}`;
+  };
+
+  const getActivityIcon = (type) => {
+    if (type.includes("Register")) {
+      return <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
+    } else if (type === "Deposit") {
+      return <Plus className="h-4 w-4 text-green-600 dark:text-green-400" />;
+    } else if (type === "Withdrawal") {
+      return <ArrowUpRight className="h-4 w-4 text-orange-600 dark:text-orange-400" />;
+    } else if (type.includes("Loan")) {
+      return <CreditCard className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />;
+    } else {
+      return <Wallet className="h-4 w-4 text-purple-600 dark:text-purple-400" />;
+    }
+  };
+
+  const formatActivityType = (type) => {
+    return type.replace(/([A-Z])/g, " $1").trim();
+  };
+
+  const formatActivityDetails = (details) => {
+    // Remove any details hash or long hash-like strings from display
+    if (typeof details === 'string') {
+      // Remove IPFS hashes (starting with Qm and 46+ characters)
+      const cleanedDetails = details.replace(/Qm[a-zA-Z0-9]{44,}/g, '');
+      // Remove any other long hash-like strings (40+ alphanumeric characters)
+      return cleanedDetails.replace(/[a-zA-Z0-9]{40,}/g, '').trim();
+    }
+    return details;
   };
 
   if (isLoading) {
@@ -283,57 +313,59 @@ export default function Dashboard() {
                     <CardDescription>Your latest transactions and updates</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {activities.length === 0 ? (
-                        <p className="text-gray-500 dark:text-gray-400 text-center">
-                          No activities found. Start by making a deposit!
-                        </p>
-                      ) : (
-                        <ul className="space-y-4">
-                          {activities.map((activity, index) => (
-                            <li
-                              key={activity.txHash || index}
-                              className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b dark:border-gray-700 pb-4 last:border-b-0"
-                            >
-                              <div className="flex items-center space-x-3">
-                                {activity.type.includes("Register") ? (
-                                  <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                ) : activity.type === "Deposit" ? (
-                                  <Plus className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                ) : activity.type === "Withdrawal" ? (
-                                  <ArrowUpRight className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                                ) : activity.type.includes("Loan") ? (
-                                  <CreditCard className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-                                ) : (
-                                  <Wallet className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                                )}
-                                <div>
-                                  <p className="font-medium dark:text-white">
-                                    {activity.type.replace(/([A-Z])/g, " $1").trim()}
-                                  </p>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    {formatDate(activity.timestamp)}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="mt-2 sm:mt-0 sm:text-right">
-                                <p className="font-medium dark:text-white">{activity.details}</p>
-                                {activity.txHash && (
-                                  <a
-                                    href={getExplorerLink(activity.txHash)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center"
-                                  >
-                                    View on Explorer <ExternalLink className="ml-1 h-3 w-3" />
-                                  </a>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
+                    {activities.length === 0 ? (
+                      <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                        No activities found. Start by making a deposit!
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b dark:border-gray-700">
+                              <th className="text-left py-3 px-2 w-12"></th>
+                              <th className="text-left py-3 px-2 font-medium text-sm text-gray-500 dark:text-gray-400">Activity</th>
+                              <th className="text-left py-3 px-2 font-medium text-sm text-gray-500 dark:text-gray-400">Details</th>
+                              <th className="text-left py-3 px-2 font-medium text-sm text-gray-500 dark:text-gray-400">Date</th>
+                              <th className="text-right py-3 px-2 font-medium text-sm text-gray-500 dark:text-gray-400">Transaction</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {activities.map((activity, index) => (
+                              <tr key={activity.txHash || index} className="border-b dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <td className="py-3 px-2">
+                                  {getActivityIcon(activity.type)}
+                                </td>
+                                <td className="py-3 px-2 font-medium dark:text-white">
+                                  {formatActivityType(activity.type)}
+                                </td>
+                                <td className="py-3 px-2 max-w-xs">
+                                  <div className="truncate text-gray-500 dark:text-gray-400">
+                                    {formatActivityDetails(activity.details)}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-2 text-sm text-gray-500 dark:text-gray-400">
+                                  {formatDate(activity.timestamp)}
+                                </td>
+                                <td className="py-3 px-2 text-right">
+                                  {activity.txHash ? (
+                                    <a
+                                      href={getExplorerLink(activity.txHash)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  ) : (
+                                    <span className="text-gray-400 dark:text-gray-600">-</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </CardContent>
                   <CardFooter>
                     <Button

@@ -11,6 +11,9 @@ import { Heart, Users, User, Plus, Trash, ShieldCheck } from "lucide-react"
 import { registerIndividual, registerFamily, connectWallet } from "@/lib/web3"
 import { useRouter } from "next/navigation"
 
+// Constant details hash
+const DETAILS_HASH = "QmSA1NETugYdd4t4oqyCJvHhTsWem32mxJFkUd2h5bfo4y"
+
 export default function RegisterPage() {
   const router = useRouter()
   const [isRegistering, setIsRegistering] = useState(false)
@@ -19,27 +22,28 @@ export default function RegisterPage() {
 
   // Individual registration state
   const [individualPlan, setIndividualPlan] = useState("0") // 0 = Basic, 1 = Premium
-  const [detailsHash, setDetailsHash] = useState("")
   const [referrer, setReferrer] = useState("")
 
   // Family registration state
   const [familyPlan, setFamilyPlan] = useState("0")
-  const [familyMembers, setFamilyMembers] = useState([{ address: "", detailsHash: "" }])
+  const [familyMembers, setFamilyMembers] = useState([{ address: "" }, { address: "" }])
   const [familyName, setFamilyName] = useState("")
 
   const handleAddFamilyMember = () => {
-    setFamilyMembers([...familyMembers, { address: "", detailsHash: "" }])
+    setFamilyMembers([...familyMembers, { address: "" }])
   }
 
   const handleRemoveFamilyMember = (index) => {
-    const updatedMembers = [...familyMembers]
-    updatedMembers.splice(index, 1)
-    setFamilyMembers(updatedMembers)
+    if (familyMembers.length > 2) { // Keep minimum 2 members
+      const updatedMembers = [...familyMembers]
+      updatedMembers.splice(index, 1)
+      setFamilyMembers(updatedMembers)
+    }
   }
 
-  const handleFamilyMemberChange = (index, field, value) => {
+  const handleFamilyMemberChange = (index, value) => {
     const updatedMembers = [...familyMembers]
-    updatedMembers[index][field] = value
+    updatedMembers[index].address = value
     setFamilyMembers(updatedMembers)
   }
 
@@ -49,13 +53,6 @@ export default function RegisterPage() {
     setSuccess("");
 
     try {
-      // Validate inputs
-      if (!detailsHash || detailsHash.length < 40) {
-        setError("Please provide a valid details hash (minimum 40 characters).");
-        setIsRegistering(false);
-        return;
-      }
-      
       const referrerAddress = referrer && referrer.match(/^0x[a-fA-F0-9]{40}$/) ? referrer : "0x0000000000000000000000000000000000000000";
 
       // Connect wallet first
@@ -66,7 +63,7 @@ export default function RegisterPage() {
         return;
       }
 
-      const result = await registerIndividual(Number.parseInt(individualPlan), detailsHash, referrerAddress);
+      const result = await registerIndividual(Number.parseInt(individualPlan), DETAILS_HASH, referrerAddress);
       if (result.success) {
         setSuccess("Registration successful! Redirecting to verification...");
         setTimeout(() => {
@@ -91,12 +88,14 @@ export default function RegisterPage() {
     try {
       // Validate family members
       const validMembers = familyMembers.filter((member) => 
-        member.address.match(/^0x[a-fA-F0-9]{40}$/) && 
-        member.detailsHash && member.detailsHash.length >= 40
-      );
+        member.address.match(/^0x[a-fA-F0-9]{40}$/)
+      ).map(member => ({
+        address: member.address,
+        detailsHash: DETAILS_HASH
+      }));
       
       if (validMembers.length < 2) {
-        setError("Please add at least 2 valid family members with addresses and details hashes.");
+        setError("Please add at least 2 valid family members with wallet addresses.");
         setIsRegistering(false);
         return;
       }
@@ -170,20 +169,6 @@ export default function RegisterPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="detailsHash">Details Hash (IPFS CID)</Label>
-                    <Input
-                      id="detailsHash"
-                      placeholder="Enter your details hash (e.g., QmYourIPFSHash...)"
-                      value={detailsHash}
-                      onChange={(e) => setDetailsHash(e.target.value)}
-                      className="dark:border-gray-700"
-                    />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      This should be an IPFS hash containing your personal details (minimum 40 characters)
-                    </p>
-                  </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="referrer">Referrer Address (Optional)</Label>
                     <Input
@@ -327,7 +312,7 @@ export default function RegisterPage() {
                       <div key={index} className="space-y-2 p-4 border rounded-lg dark:border-gray-700">
                         <div className="flex items-center gap-2">
                           <Label className="text-sm">Member {index + 1}</Label>
-                          {index > 0 && (
+                          {index > 1 && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -341,13 +326,7 @@ export default function RegisterPage() {
                         <Input
                           placeholder="Wallet Address (0x...)"
                           value={member.address}
-                          onChange={(e) => handleFamilyMemberChange(index, "address", e.target.value)}
-                          className="dark:border-gray-700"
-                        />
-                        <Input
-                          placeholder="Details Hash (IPFS CID, minimum 40 characters)"
-                          value={member.detailsHash}
-                          onChange={(e) => handleFamilyMemberChange(index, "detailsHash", e.target.value)}
+                          onChange={(e) => handleFamilyMemberChange(index, e.target.value)}
                           className="dark:border-gray-700"
                         />
                       </div>
