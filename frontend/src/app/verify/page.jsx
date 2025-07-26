@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, AlertCircle, ShieldCheck, CheckCircle } from "lucide-react";
+import { Loader2, AlertCircle, ShieldCheck, CheckCircle, Smartphone, QrCode } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { connectWallet } from "@/lib/web3";
 import { v4 as uuid4 } from "uuid";
@@ -14,6 +14,7 @@ export default function VerificationPage() {
   const [isVerified, setIsVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [selfApp, setSelfApp] = useState(null);
+  const [universalLink, setUniversalLink] = useState("");
   const [error, setError] = useState("");
   const [verificationInProgress, setVerificationInProgress] = useState(false);
   const [selfLoaded, setSelfLoaded] = useState(false);
@@ -35,6 +36,7 @@ export default function VerificationPage() {
             try {
               // Dynamic import with proper error handling
               const selfModule = await import("@selfxyz/qrcode");
+              const { getUniversalLink } = await import("@selfxyz/core");
               
               const app = new selfModule.SelfAppBuilder({
                 appName: "HealFi",
@@ -54,6 +56,7 @@ export default function VerificationPage() {
               
               setSelfApp(app);
               setSelfComponents(selfModule);
+              setUniversalLink(getUniversalLink(app));
               setSelfLoaded(true);
             } catch (selfError) {
               console.error("Error initializing Self app:", selfError);
@@ -92,6 +95,12 @@ export default function VerificationPage() {
     setVerificationInProgress(false);
   };
 
+  const openSelfApp = () => {
+    if (universalLink) {
+      window.open(universalLink, "_blank");
+    }
+  };
+
   const handleReconnect = async () => {
     setIsLoading(true);
     setError("");
@@ -107,6 +116,7 @@ export default function VerificationPage() {
         if (verificationStatus !== "true") {
           try {
             const selfModule = await import("@selfxyz/qrcode");
+            const { getUniversalLink } = await import("@selfxyz/core");
             
             const app = new selfModule.SelfAppBuilder({
               appName: "HealFi",
@@ -126,6 +136,7 @@ export default function VerificationPage() {
             
             setSelfApp(app);
             setSelfComponents(selfModule);
+            setUniversalLink(getUniversalLink(app));
             setSelfLoaded(true);
           } catch (selfError) {
             console.error("Error initializing Self app:", selfError);
@@ -325,18 +336,82 @@ export default function VerificationPage() {
                 </p>
               </div>
               
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-                <div className="flex justify-center mb-4">
-                  <SelfComponents.SelfQRcodeWrapper
-                    selfApp={selfApp}
-                    onSuccess={handleVerificationSuccess}
-                    onError={handleVerificationError}
-                    size={280}
-                  />
+              {/* Desktop QR Code */}
+              <div className="hidden sm:block">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                  <div className="flex items-center gap-2 justify-center mb-4">
+                    <QrCode className="h-4 w-4" />
+                    <span className="text-sm font-medium">Scan with Self App</span>
+                  </div>
+                  <div className="flex justify-center mb-4">
+                    <SelfComponents.SelfQRcodeWrapper
+                      selfApp={selfApp}
+                      onSuccess={handleVerificationSuccess}
+                      onError={handleVerificationError}
+                      size={280}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                    Powered by Self Protocol
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
+                    Don't have the Self app? 
+                    <a 
+                      href="https://selfprotocol.xyz" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-green-600 hover:underline ml-1"
+                    >
+                      Download here
+                    </a>
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                  Powered by Self Protocol
-                </p>
+              </div>
+
+              {/* Mobile Interface */}
+              <div className="sm:hidden">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                  <div className="text-center space-y-4">
+                    <div className="flex items-center gap-2 justify-center">
+                      <Smartphone className="h-4 w-4" />
+                      <span className="text-sm font-medium">Mobile Verification</span>
+                    </div>
+                    <Button onClick={openSelfApp} className="w-full bg-green-600 hover:bg-green-700" size="lg">
+                      <Smartphone className="mr-2 h-4 w-4" />
+                      Open Self App
+                    </Button>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      This will open the Self app directly for verification
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Don't have the Self app? 
+                      <a 
+                        href="https://selfprotocol.xyz" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-green-600 hover:underline ml-1"
+                      >
+                        Download here
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Alternative option for mobile on larger screens */}
+              <div className="hidden sm:block">
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700 text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">On mobile?</p>
+                  <Button 
+                    variant="outline" 
+                    onClick={openSelfApp} 
+                    size="sm"
+                    className="border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
+                  >
+                    <Smartphone className="mr-2 h-3 w-3" />
+                    Open Self App Directly
+                  </Button>
+                </div>
               </div>
 
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">

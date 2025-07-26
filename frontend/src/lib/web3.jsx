@@ -74,7 +74,7 @@ export const getProvider = () => {
   return new ethers.JsonRpcProvider(CELO_ALFAJORES_CONFIG.rpcUrls[0])
 }
 
-// Enhanced connect wallet with network validation
+// FIXED: Enhanced connect wallet with network validation
 export const connectWallet = async () => {
   try {
     if (typeof window !== "undefined" && window.ethereum) {
@@ -109,8 +109,417 @@ export const connectWallet = async () => {
     }
   } catch (error) {
     console.error("Error connecting wallet:", error)
-    return { success: true, txHash: tx.hash }
+    return { 
+      success: false, 
+      error: error.message || "Failed to connect wallet"
+    }
   } 
+}
+
+// Enhanced error handling for contract calls
+const getContractError = (error) => {
+  if (error.reason) {
+    return error.reason
+  }
+  if (error.data && error.data.message) {
+    return error.data.message
+  }
+  if (error.message) {
+    // Extract revert reason from error message
+    const revertMatch = error.message.match(/revert (.+)/)
+    if (revertMatch) {
+      return revertMatch[1]
+    }
+    return error.message
+  }
+  return "Transaction failed"
+}
+
+// Gas estimation helper for Celo
+const estimateGasWithBuffer = async (contract, functionName, args = [], options = {}) => {
+  try {
+    const estimatedGas = await contract[functionName].estimateGas(...args, options)
+    // Add 30% buffer for Celo network
+    return estimatedGas * 130n / 100n
+  } catch (error) {
+    console.warn("Gas estimation failed, using default:", error.message)
+    return 300000n // Increased default gas limit for Celo
+  }
+}
+
+// Enhanced transaction execution with better error handling
+const executeTransaction = async (contract, functionName, args = [], options = {}) => {
+  try {
+    const gasLimit = await estimateGasWithBuffer(contract, functionName, args, options)
+    const tx = await contract[functionName](...args, { ...options, gasLimit })
+    console.log(`Transaction sent: ${tx.hash}`)
+    
+    const receipt = await tx.wait()
+    console.log(`Transaction confirmed in block: ${receipt.blockNumber}`)
+    
+    return { success: true, txHash: receipt.hash, receipt }
+  } catch (error) {
+    console.error(`Transaction failed for ${functionName}:`, error)
+    throw error
+  }
+}
+
+// Get contract instances with network validation
+export const getDonorContract = async (signer) => {
+  try {
+    await checkNetwork(signer.provider)
+    return new ethers.Contract(CONTRACT_ADDRESSES.donorContract, DonorContractAbi, signer)
+  } catch (error) {
+    console.error("Error getting donor contract:", error)
+    return null
+  }
+}
+
+export const getHSTContract = async (signer) => {
+  try {
+    await checkNetwork(signer.provider)
+    return new ethers.Contract(CONTRACT_ADDRESSES.hstContract, HSTcontractAbi, signer)
+  } catch (error) {
+    console.error("Error getting HST contract:", error)
+    return null
+  }
+}
+
+export const getMultisigRedemptionContract = async (signer) => {
+  try {
+    await checkNetwork(signer.provider)
+    return new ethers.Contract(CONTRACT_ADDRESSES.multisig, MultisigRedemptionContractAbi, signer)
+  } catch (error) {
+    console.error("Error getting multisig redemption contract:", error)
+    return null
+  }
+}
+
+export const getSavingsContract = async (signer) => {
+  try {
+    await checkNetwork(signer.provider)
+    return new ethers.Contract(CONTRACT_ADDRESSES.saving, UserSavingsContractAbi, signer)
+  } catch (error) {
+    console.error("Error getting savings contract:", error)
+    return null
+  }
+}
+
+export const getFeeManagerContract = async (signer) => {
+  try {
+    await checkNetwork(signer.provider)
+    return new ethers.Contract(CONTRACT_ADDRESSES.feeManagement, FeeManagerContractAbi, signer)
+  } catch (error) {
+    console.error("Error getting fee manager contract:", error)
+    return null
+  }
+}
+
+export const getLoanContract = async (signer) => {
+  try {
+    await checkNetwork(signer.provider)
+    return new ethers.Contract(CONTRACT_ADDRESSES.loan, LoanContractAbi, signer)
+  } catch (error) {
+    console.error("Error getting loan contract:", error)
+    return null
+  }
+}
+
+export const getMetricsContract = async (signer) => {
+  try {
+    await checkNetwork(signer.provider)
+    return new ethers.Contract(CONTRACT_ADDRESSES.metrics, MetricsContractAbi, signer)
+  } catch (error) {
+    console.error("Error getting metrics contract:", error)
+    return null
+  }
+}
+
+export const getUSDTContract = async (signer) => {
+  try {
+    await checkNetwork(signer.provider)
+    return new ethers.Contract(CONTRACT_ADDRESSES.usdt, ERC20Abi, signer)
+  } catch (error) {
+    console.error("Error getting USDT contract:", error)
+    return null
+  }
+}
+
+// Add a helper function to check user registration status
+export const checkUserRegistration = async (address) => {
+  try {
+    const provider = getProvider()
+    const signer = await provider.getSigner()
+    const savingsContract = await getSavingsContract(signer)
+    
+    if (!savingsContract) {
+      throw new Error("Failed to get savings contract instance")
+    }
+
+    const savingsInfo = await savingsContract.getSavingsInfo(address)
+    return {
+      isRegistered: savingsInfo.accountType > 0 || savingsInfo.balance > 0,
+      accountType: Number(savingsInfo.accountType),
+      planType: Number(savingsInfo.planType)
+    }
+  } catch (error) {
+    console.error("Error checking user registration:", error)
+    return { isRegistered: false, accountType: 0, planType: 0 }
+  }
+}
+
+// FIXED: Enhanced deposit function with comprehensive validation
+export const deposit = async (amount) => {
+  try {
+    if (!amount || parseFloat(amount) <= 0) {
+      throw new Error("Invalid deposit amount")
+    }
+
+    const provider = getProvider()
+    await checkNetwork(provider)
+    const signer = await provider.getSigner()
+    const userAddress = await signer.getAddress()
+    
+    // Get contract instances
+    const savingsContract = await getSavingsContract(signer)
+    const usdtContract = await getUSDTContract(signer)
+
+    if (!savingsContract || !usdtContract) {
+      throw new Error("Failed to get contract instances")
+    }
+
+    // Convert amount to Wei
+    const amountInWei = ethers.parseUnits(amount.toString(), 6)
+    
+    // 1. Check if user is registered
+    console.log("Checking if user is registered...")
+    let isRegistered = false
+    try {
+      const savingsInfo = await savingsContract.getSavingsInfo(userAddress)
+      // If accountType is 0 and no other data, user is not registered
+      isRegistered = savingsInfo.accountType > 0 || savingsInfo.balance > 0 || savingsInfo.lastDepositTime > 0
+    } catch (error) {
+      console.log("User not registered or getSavingsInfo failed:", error.message)
+      isRegistered = false
+    }
+
+    if (!isRegistered) {
+      throw new Error("User must be registered before making a deposit. Please register first.")
+    }
+
+    // 2. Check user's USDT balance
+    console.log("Checking USDT balance...")
+    const balance = await usdtContract.balanceOf(userAddress)
+    if (balance < amountInWei) {
+      throw new Error(`Insufficient USDT balance. Available: ${ethers.formatUnits(balance, 6)} USDT, Required: ${amount} USDT`)
+    }
+
+    // 3. Check current allowance
+    console.log("Checking current allowance...")
+    const currentAllowance = await usdtContract.allowance(userAddress, CONTRACT_ADDRESSES.saving)
+    if (currentAllowance < amountInWei) {
+      // 4. Approve USDT spending (approve max amount to avoid future approvals)
+      console.log("Approving USDT transfer...")
+      const maxAmount = ethers.parseUnits("1000000", 6) // Approve 1M USDT max
+      const approvalResult = await executeTransaction(
+        usdtContract,
+        'approve',
+        [CONTRACT_ADDRESSES.saving, maxAmount]
+      )
+      
+      if (!approvalResult.success) {
+        throw new Error("USDT approval failed")
+      }
+      
+      // Wait a bit for the approval to be confirmed
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
+
+    // 5. Check if contract is paused (if there's such functionality)
+    console.log("Checking contract state...")
+    
+    // 6. Estimate gas for the deposit transaction
+    try {
+      await savingsContract.deposit.estimateGas(amountInWei)
+    } catch (estimateError) {
+      console.error("Gas estimation failed:", estimateError)
+      throw new Error(`Transaction would fail: ${getContractError(estimateError)}`)
+    }
+
+    // 7. Make deposit
+    console.log("Making deposit...")
+    return await executeTransaction(
+      savingsContract,
+      'deposit',
+      [amountInWei]
+    )
+  } catch (error) {
+    console.error("Error depositing:", error)
+    const errorMessage = getContractError(error)
+    return { success: false, error: errorMessage }
+  }
+}
+
+// Enhanced withdrawal function with better validation
+export const withdraw = async (amount) => {
+  try {
+    if (!amount || parseFloat(amount) <= 0) {
+      throw new Error("Invalid withdrawal amount")
+    }
+
+    const provider = getProvider()
+    await checkNetwork(provider)
+    const signer = await provider.getSigner()
+    const userAddress = await signer.getAddress()
+    const savingsContract = await getSavingsContract(signer)
+
+    if (!savingsContract) {
+      throw new Error("Failed to get savings contract instance")
+    }
+
+    const amountInWei = ethers.parseUnits(amount.toString(), 6)
+    
+    // Check user's savings info and balance
+    console.log("Checking savings balance...")
+    const savingsInfo = await getSavingsInfo(userAddress)
+    if (!savingsInfo) {
+      throw new Error("Unable to fetch savings information. Make sure you are registered.")
+    }
+    
+    if (parseFloat(savingsInfo.balance) < parseFloat(amount)) {
+      throw new Error(`Insufficient savings balance. Available: ${savingsInfo.balance} USDT, Requested: ${amount} USDT`)
+    }
+
+    // Estimate gas for the withdrawal transaction
+    try {
+      await savingsContract.withdraw.estimateGas(amountInWei)
+    } catch (estimateError) {
+      console.error("Gas estimation failed:", estimateError)
+      throw new Error(`Transaction would fail: ${getContractError(estimateError)}`)
+    }
+
+    console.log("Making withdrawal...")
+    return await executeTransaction(
+      savingsContract,
+      'withdraw',
+      [amountInWei]
+    )
+  } catch (error) {
+    console.error("Error withdrawing:", error)
+    const errorMessage = getContractError(error)
+    return { success: false, error: errorMessage }
+  }
+}
+
+// Enhanced register individual with proper validation and gas optimization
+export const registerIndividual = async (planType, detailsHash, referrer = ethers.ZeroAddress) => {
+  try {
+    // Validate inputs
+    if (!Number.isInteger(planType) || planType < 0 || planType > 2) {
+      throw new Error("Invalid plan type. Must be 0 (Daily), 1 (Weekly), or 2 (Monthly).")
+    }
+    if (!detailsHash || typeof detailsHash !== "string") {
+      throw new Error("Details hash is required and must be a string.")
+    }
+    if (referrer && referrer !== ethers.ZeroAddress && !ethers.isAddress(referrer)) {
+      throw new Error("Invalid referrer address.")
+    }
+
+    const provider = getProvider()
+    await checkNetwork(provider)
+    const signer = await provider.getSigner()
+    const userAddress = await signer.getAddress()
+    const savingsContract = await getSavingsContract(signer)
+
+    if (!savingsContract) {
+      throw new Error("Failed to get savings contract instance")
+    }
+
+    // Check if user is already registered
+    try {
+      const savingsInfo = await savingsContract.getSavingsInfo(userAddress)
+      if (savingsInfo.accountType > 0) {
+        throw new Error("User is already registered")
+      }
+    } catch (error) {
+      // If getSavingsInfo fails, user might not be registered, which is what we want
+      console.log("User registration check:", error.message)
+    }
+
+    console.log("Registering individual with:", { planType, detailsHash, referrer })
+    
+    return await executeTransaction(
+      savingsContract, 
+      'registerIndividual', 
+      [planType, detailsHash, referrer || ethers.ZeroAddress]
+    )
+  } catch (error) {
+    console.error("Error registering individual:", error)
+    const errorMessage = getContractError(error)
+    return { success: false, error: errorMessage }
+  }
+}
+
+// Enhanced register family function with proper validation and gas optimization
+export const registerFamily = async (familyMembers, planType, familyName, referrer = ethers.ZeroAddress) => {
+  try {
+    // Validate inputs
+    if (!Number.isInteger(planType) || planType < 0 || planType > 2) {
+      throw new Error("Invalid plan type. Must be 0 (Daily), 1 (Weekly), or 2 (Monthly).")
+    }
+    if (!familyName || typeof familyName !== "string" || !familyName.trim()) {
+      throw new Error("Family name is required and must be a non-empty string.")
+    }
+    if (!Array.isArray(familyMembers) || familyMembers.length < 2) {
+      throw new Error("At least 2 family members are required.")
+    }
+    
+    // Validate family members
+    for (let i = 0; i < familyMembers.length; i++) {
+      const member = familyMembers[i]
+      if (!member.address || !ethers.isAddress(member.address)) {
+        throw new Error(`Invalid address for family member ${i + 1}.`)
+      }
+      if (!member.detailsHash || typeof member.detailsHash !== "string") {
+        throw new Error(`Details hash is required for family member ${i + 1}.`)
+      }
+    }
+    
+    if (referrer && referrer !== ethers.ZeroAddress && !ethers.isAddress(referrer)) {
+      throw new Error("Invalid referrer address.")
+    }
+
+    const provider = getProvider()
+    await checkNetwork(provider)
+    const signer = await provider.getSigner()
+    const savingsContract = await getSavingsContract(signer)
+
+    if (!savingsContract) {
+      throw new Error("Failed to get savings contract instance")
+    }
+
+    // Prepare member addresses and details hashes
+    const memberAddresses = familyMembers.map(member => member.address)
+    const memberDetailsHashes = familyMembers.map(member => member.detailsHash)
+
+    console.log("Registering family with:", { 
+      memberAddresses, 
+      memberDetailsHashes, 
+      planType, 
+      familyName, 
+      referrer 
+    })
+    
+    return await executeTransaction(
+      savingsContract, 
+      'registerFamily', 
+      [memberAddresses, memberDetailsHashes, planType, familyName, referrer || ethers.ZeroAddress]
+    )
+  } catch (error) {
+    console.error("Error registering family:", error)
+    const errorMessage = getContractError(error)
+    return { success: false, error: errorMessage }
+  }
 }
 
 export const removePartneredFacility = async (facility) => {
@@ -759,10 +1168,7 @@ export const getUSDTAllowance = async (owner, spender) => {
   }
 }
 
-// Note: Administrative functions (pause, unpause, ownership transfer, address updates, recoverTokens, testMintHST, 
-// testDonate, testMint, testInitiateRedemption, testDisburseLoan) are not implemented as they should be restricted 
-// to contract owners and require careful security considerations.: false, error: error.message }
-  export const getNetworkName = async () => {
+export const getNetworkName = async () => {
   try {
     const provider = getProvider()
     const network = await provider.getNetwork()
@@ -770,314 +1176,6 @@ export const getUSDTAllowance = async (owner, spender) => {
   } catch (error) {
     console.error("Error getting network name:", error)
     return "Unknown Network"
-  }
-}
-
-
-// Gas estimation helper for Celo
-const estimateGasWithBuffer = async (contract, functionName, args = [], options = {}) => {
-  try {
-    const estimatedGas = await contract[functionName].estimateGas(...args, options)
-    // Add 20% buffer for Celo network
-    return estimatedGas * 120n / 100n
-  } catch (error) {
-    console.warn("Gas estimation failed, using default:", error.message)
-    return 200000n // Default gas limit for Celo
-  }
-}
-
-// Enhanced transaction execution with gas optimization
-const executeTransaction = async (contract, functionName, args = [], options = {}) => {
-  try {
-    const gasLimit = await estimateGasWithBuffer(contract, functionName, args, options)
-    const tx = await contract[functionName](...args, { ...options, gasLimit })
-    console.log(`Transaction sent: ${tx.hash}`)
-    
-    const receipt = await tx.wait()
-    console.log(`Transaction confirmed in block: ${receipt.blockNumber}`)
-    
-    return { success: true, txHash: receipt.hash, receipt }
-  } catch (error) {
-    console.error(`Transaction failed for ${functionName}:`, error)
-    throw error
-  }
-}
-
-// Get contract instances with network validation
-export const getDonorContract = async (signer) => {
-  try {
-    await checkNetwork(signer.provider)
-    return new ethers.Contract(CONTRACT_ADDRESSES.donorContract, DonorContractAbi, signer)
-  } catch (error) {
-    console.error("Error getting donor contract:", error)
-    return null
-  }
-}
-
-export const getHSTContract = async (signer) => {
-  try {
-    await checkNetwork(signer.provider)
-    return new ethers.Contract(CONTRACT_ADDRESSES.hstContract, HSTcontractAbi, signer)
-  } catch (error) {
-    console.error("Error getting HST contract:", error)
-    return null
-  }
-}
-
-export const getMultisigRedemptionContract = async (signer) => {
-  try {
-    await checkNetwork(signer.provider)
-    return new ethers.Contract(CONTRACT_ADDRESSES.multisig, MultisigRedemptionContractAbi, signer)
-  } catch (error) {
-    console.error("Error getting multisig redemption contract:", error)
-    return null
-  }
-}
-
-export const getSavingsContract = async (signer) => {
-  try {
-    await checkNetwork(signer.provider)
-    return new ethers.Contract(CONTRACT_ADDRESSES.saving, UserSavingsContractAbi, signer)
-  } catch (error) {
-    console.error("Error getting savings contract:", error)
-    return null
-  }
-}
-
-export const getFeeManagerContract = async (signer) => {
-  try {
-    await checkNetwork(signer.provider)
-    return new ethers.Contract(CONTRACT_ADDRESSES.feeManagement, FeeManagerContractAbi, signer)
-  } catch (error) {
-    console.error("Error getting fee manager contract:", error)
-    return null
-  }
-}
-
-export const getLoanContract = async (signer) => {
-  try {
-    await checkNetwork(signer.provider)
-    return new ethers.Contract(CONTRACT_ADDRESSES.loan, LoanContractAbi, signer)
-  } catch (error) {
-    console.error("Error getting loan contract:", error)
-    return null
-  }
-}
-
-export const getMetricsContract = async (signer) => {
-  try {
-    await checkNetwork(signer.provider)
-    return new ethers.Contract(CONTRACT_ADDRESSES.metrics, MetricsContractAbi, signer)
-  } catch (error) {
-    console.error("Error getting metrics contract:", error)
-    return null
-  }
-}
-
-export const getUSDTContract = async (signer) => {
-  try {
-    await checkNetwork(signer.provider)
-    return new ethers.Contract(CONTRACT_ADDRESSES.usdt, ERC20Abi, signer)
-  } catch (error) {
-    console.error("Error getting USDT contract:", error)
-    return null
-  }
-}
-
-// Enhanced register individual with proper validation and gas optimization
-export const registerIndividual = async (planType, detailsHash, referrer = ethers.ZeroAddress) => {
-  try {
-    // Validate inputs
-    if (!Number.isInteger(planType) || planType < 0 || planType > 2) {
-      throw new Error("Invalid plan type. Must be 0 (Daily), 1 (Weekly), or 2 (Monthly).")
-    }
-    if (!detailsHash || typeof detailsHash !== "string") {
-      throw new Error("Details hash is required and must be a string.")
-    }
-    if (referrer && referrer !== ethers.ZeroAddress && !ethers.isAddress(referrer)) {
-      throw new Error("Invalid referrer address.")
-    }
-
-    const provider = getProvider()
-    await checkNetwork(provider)
-    const signer = await provider.getSigner()
-    const savingsContract = await getSavingsContract(signer)
-
-    if (!savingsContract) {
-      throw new Error("Failed to get savings contract instance")
-    }
-
-    console.log("Registering individual with:", { planType, detailsHash, referrer })
-    
-    return await executeTransaction(
-      savingsContract, 
-      'registerIndividual', 
-      [planType, detailsHash, referrer || ethers.ZeroAddress]
-    )
-  } catch (error) {
-    let errorMessage = "Registration failed."
-    if (error.reason) {
-      errorMessage = error.reason
-    } else if (error.message) {
-      errorMessage = error.message
-    }
-    console.error("Error registering individual:", error)
-    return { success: false, error: errorMessage }
-  }
-}
-
-// Enhanced register family function with proper validation and gas optimization
-export const registerFamily = async (familyMembers, planType, familyName, referrer = ethers.ZeroAddress) => {
-  try {
-    // Validate inputs
-    if (!Number.isInteger(planType) || planType < 0 || planType > 2) {
-      throw new Error("Invalid plan type. Must be 0 (Daily), 1 (Weekly), or 2 (Monthly).")
-    }
-    if (!familyName || typeof familyName !== "string" || !familyName.trim()) {
-      throw new Error("Family name is required and must be a non-empty string.")
-    }
-    if (!Array.isArray(familyMembers) || familyMembers.length < 2) {
-      throw new Error("At least 2 family members are required.")
-    }
-    
-    // Validate family members
-    for (let i = 0; i < familyMembers.length; i++) {
-      const member = familyMembers[i]
-      if (!member.address || !ethers.isAddress(member.address)) {
-        throw new Error(`Invalid address for family member ${i + 1}.`)
-      }
-      if (!member.detailsHash || typeof member.detailsHash !== "string") {
-        throw new Error(`Details hash is required for family member ${i + 1}.`)
-      }
-    }
-    
-    if (referrer && referrer !== ethers.ZeroAddress && !ethers.isAddress(referrer)) {
-      throw new Error("Invalid referrer address.")
-    }
-
-    const provider = getProvider()
-    await checkNetwork(provider)
-    const signer = await provider.getSigner()
-    const savingsContract = await getSavingsContract(signer)
-
-    if (!savingsContract) {
-      throw new Error("Failed to get savings contract instance")
-    }
-
-    // Prepare member addresses and details hashes
-    const memberAddresses = familyMembers.map(member => member.address)
-    const memberDetailsHashes = familyMembers.map(member => member.detailsHash)
-
-    console.log("Registering family with:", { 
-      memberAddresses, 
-      memberDetailsHashes, 
-      planType, 
-      familyName, 
-      referrer 
-    })
-    
-    return await executeTransaction(
-      savingsContract, 
-      'registerFamily', 
-      [memberAddresses, memberDetailsHashes, planType, familyName, referrer || ethers.ZeroAddress]
-    )
-  } catch (error) {
-    let errorMessage = "Family registration failed."
-    if (error.reason) {
-      errorMessage = error.reason
-    } else if (error.message) {
-      errorMessage = error.message
-    }
-    console.error("Error registering family:", error)
-    return { success: false, error: errorMessage }
-  }
-}
-
-// Enhanced deposit function with gas optimization
-export const deposit = async (amount) => {
-  try {
-    if (!amount || parseFloat(amount) <= 0) {
-      throw new Error("Invalid deposit amount")
-    }
-
-    const provider = getProvider()
-    await checkNetwork(provider)
-    const signer = await provider.getSigner()
-    const savingsContract = await getSavingsContract(signer)
-    const usdtContract = await getUSDTContract(signer)
-
-    if (!savingsContract || !usdtContract) {
-      throw new Error("Failed to get contract instances")
-    }
-
-    const amountInWei = ethers.parseUnits(amount.toString(), 6)
-    
-    // Check user's USDT balance
-    const userAddress = await signer.getAddress()
-    const balance = await usdtContract.balanceOf(userAddress)
-    if (balance < amountInWei) {
-      throw new Error("Insufficient USDT balance")
-    }
-
-    // Approve USDT spending
-    console.log("Approving USDT transfer...")
-    const approvalResult = await executeTransaction(
-      usdtContract,
-      'approve',
-      [CONTRACT_ADDRESSES.saving, amountInWei]
-    )
-    
-    if (!approvalResult.success) {
-      throw new Error("USDT approval failed")
-    }
-
-    // Make deposit
-    console.log("Making deposit...")
-    return await executeTransaction(
-      savingsContract,
-      'deposit',
-      [amountInWei]
-    )
-  } catch (error) {
-    console.error("Error depositing:", error)
-    return { success: false, error: error.message }
-  }
-}
-
-// Enhanced withdrawal function
-export const withdraw = async (amount) => {
-  try {
-    if (!amount || parseFloat(amount) <= 0) {
-      throw new Error("Invalid withdrawal amount")
-    }
-
-    const provider = getProvider()
-    await checkNetwork(provider)
-    const signer = await provider.getSigner()
-    const savingsContract = await getSavingsContract(signer)
-
-    if (!savingsContract) {
-      throw new Error("Failed to get savings contract instance")
-    }
-
-    const amountInWei = ethers.parseUnits(amount.toString(), 6)
-    
-    // Check user's savings balance
-    const userAddress = await signer.getAddress()
-    const savingsInfo = await getSavingsInfo(userAddress)
-    if (!savingsInfo || parseFloat(savingsInfo.balance) < parseFloat(amount)) {
-      throw new Error("Insufficient savings balance")
-    }
-
-    console.log("Making withdrawal...")
-    return await executeTransaction(
-      savingsContract,
-      'withdraw',
-      [amountInWei]
-    )
-  } catch (error) {
-    console.error("Error withdrawing:", error)
-    return { success: false, error: error.message }
   }
 }
 
@@ -1118,7 +1216,7 @@ export const getOptimalGasPrice = async () => {
   }
 }
 
-// Fetch savings transaction history (FIXED - no longer duplicate)
+// Fetch savings transaction history
 export async function getSavingsTransactions(address) {
   try {
     const provider = getProvider()

@@ -1,12 +1,12 @@
 // Contract addresses
 export const CONTRACT_ADDRESSES = {
-  hstContract: "0x2D9B39f9Bc744e13c7796618f4655a4f9Fa55D39",
-  donorContract: "0x1A89BC64e7C4155F95347eaaD34a2d8869AC25fE",
-  feeManagement: "0x7842A47C60d67Df7E0FD47aA66f0b757351cCF80",
-  multisig: "0x0584aa5138E12275212C390E7B398fDb4B1c94B9",
-  usdt: "0x90193C961A926261B756D1E5bb255e67ff9498A1",
-  loan: "0x07e6cb6e38dD12105F9d787C79192dF2ca991D9D",
-  saving: "0x482b4A6b4e88C188F9E7289bEd8F525Cd0A77EB3",
+  hstContract: "0xC58d8c1f9C1A60A77C4D2FD2EA22770fF23D0159",
+  donorContract: "0x5A3130303e4A90bfA9672e0a6584234BE0aFcf0F",
+  feeManagement: "0x5905c7B109EB9FD07aD8005ffF1B6E08a4E1b4d5",
+  multisig: "0xA9DC86368919B3A589C353f9Da83716883376011",
+  usdt: "0xfE08B31CE0B7f0253fAf8dD28Fdb476233CCE897",
+  loan: "0xfD94d0BD275f32f33f84ebb4cc1d4e3e354a5B85",
+  saving: "0xEb6315eef3B8A0EB4541824a7b2C29f7253366eF",
   metrics: "0xbC312F1281105665fA724d73500E0C37cc695f79",
 }
 // Contract ABIs
@@ -1996,23 +1996,41 @@ export const UserSavingsContractAbi = 	[
     "type": "constructor"
   },
   {
-    "anonymous": false,
+    "inputs": [],
+    "name": "EnforcedPause",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ExpectedPause",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
-        "indexed": true,
         "internalType": "address",
-        "name": "previousOwner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newOwner",
+        "name": "owner",
         "type": "address"
       }
     ],
-    "name": "OwnershipTransferred",
-    "type": "event"
+    "name": "OwnableInvalidOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
   },
   {
     "anonymous": false,
@@ -2137,6 +2155,25 @@ export const UserSavingsContractAbi = 	[
       }
     ],
     "name": "HSTAwarded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
     "type": "event"
   },
   {
@@ -2691,7 +2728,7 @@ export const UserSavingsContractAbi = 	[
     "type": "function"
   },
   {
-    "internals": [],
+    "inputs": [],
     "name": "hstContract",
     "outputs": [
       {
@@ -2781,7 +2818,6 @@ export const UserSavingsContractAbi = 	[
     "inputs": [],
     "name": "nextFamilyId",
     "outputs": [
- 
       {
         "internalType": "uint256",
         "name": "",
@@ -3009,6 +3045,31 @@ export const UserSavingsContractAbi = 	[
     "inputs": [
       {
         "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "unlockFunds",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "unpause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "_hstContract",
         "type": "address"
       },
@@ -3029,26 +3090,6 @@ export const UserSavingsContractAbi = 	[
       }
     ],
     "name": "updateContractAddresses",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "unlockFunds",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "unpause",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
