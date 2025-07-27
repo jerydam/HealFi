@@ -273,7 +273,7 @@ export default function MetricsPage() {
                 Refresh Metrics
               </Button>
               <Button 
-                onClick={() => window.open('https://alfajores.celoscan.io/', '_blank')}
+                onClick={() => window.open('https://celo-alfajores.blockscout.com//', '_blank')}
                 variant="outline" 
                 className="flex-1 dark:border-gray-700 dark:text-gray-200"
               >

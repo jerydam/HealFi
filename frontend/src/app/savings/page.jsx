@@ -144,7 +144,7 @@ export default function SavingsPage() {
   };
 
   const getExplorerLink = (txHash) => {
-    return `https://alfajores.celoscan.io/tx/${txHash}`;
+    return `https://celo-alfajores.blockscout.com//tx/${txHash}`;
   };
 
   if (isLoading) {

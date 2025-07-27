@@ -24,7 +24,7 @@ export const CELO_ALFAJORES_CONFIG = {
     "https://alfajores-forno.celo-testnet.org",
     "https://celo-alfajores.infura.io/v3/YOUR_INFURA_KEY" // Replace with your Infura key if needed
   ],
-  blockExplorerUrls: ["https://alfajores.celoscan.io/"]
+  blockExplorerUrls: ["https://celo-alfajores.blockscout.com//"]
 }
 
 // Network validation helper
