@@ -1,8 +1,5 @@
 import "@/app/globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import Navbar from "@/components/navbar";
-
-
+import ClientLayout from "@/components/ClientLayout"; // Import ClientLayout
 
 export const metadata = {
   title: "HealFi - Healthcare Savings & Microloans",
@@ -72,18 +69,10 @@ export default function RootLayout({ children }) {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className={` min-h-screen flex flex-col bg-background text-foreground antialiased`}>
-        <ThemeProvider 
-          defaultTheme="light" 
-          attribute="class"
-          enableSystem={true}
-          storageKey="healfi-theme"
-        >
-          <div className="flex flex-col min-h-screen">
-            <Navbar />
-            <main className="flex-1 bg-background">{children}</main>
-          </div>
-        </ThemeProvider>
+      <body className="min-h-screen flex flex-col bg-background text-foreground antialiased">
+        <ClientLayout>
+          {children}
+        </ClientLayout>
       </body>
     </html>
   );

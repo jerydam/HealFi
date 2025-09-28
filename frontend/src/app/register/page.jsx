@@ -8,7 +8,14 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Heart, Users, User, Plus, Trash, ShieldCheck } from "lucide-react"
-import { registerIndividual, registerFamily, connectWallet } from "@/lib/web3"
+import { 
+  useActiveAccount, 
+  useSendTransaction,
+  useActiveWallet
+} from "thirdweb/react"
+import { getSavingsContract } from "@/lib/web3"
+import { prepareContractCall } from "thirdweb"
+import { ethers } from "ethers"
 import { useRouter } from "next/navigation"
 
 // Constant details hash
@@ -16,7 +23,10 @@ const DETAILS_HASH = "QmSA1NETugYdd4t4oqyCJvHhTsWem32mxJFkUd2h5bfo4y"
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [isRegistering, setIsRegistering] = useState(false)
+  const account = useActiveAccount()
+  const wallet = useActiveWallet()
+  const { mutate: sendTransaction, isPending: isRegistering } = useSendTransaction()
+  
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
@@ -48,88 +58,124 @@ export default function RegisterPage() {
   }
 
   const handleIndividualRegistration = async () => {
-    setIsRegistering(true);
-    setError("");
-    setSuccess("");
+    if (!account) {
+      setError("Please connect your wallet first")
+      return
+    }
+
+    setError("")
+    setSuccess("")
 
     try {
-      const referrerAddress = referrer && referrer.match(/^0x[a-fA-F0-9]{40}$/) ? referrer : "0x0000000000000000000000000000000000000000";
+      const referrerAddress = referrer && referrer.match(/^0x[a-fA-F0-9]{40}$/) ? referrer : ethers.ZeroAddress
 
-      // Connect wallet first
-      const walletResult = await connectWallet();
-      if (!walletResult.success) {
-        setError("Failed to connect wallet: " + walletResult.error);
-        setIsRegistering(false);
-        return;
-      }
-
-      const result = await registerIndividual(Number.parseInt(individualPlan), DETAILS_HASH, referrerAddress);
-      if (result.success) {
-        setSuccess("Registration successful! Redirecting to verification...");
-        setTimeout(() => {
-          router.push("/verify");
-        }, 2000);
-      } else {
-        setError(result.error || "Registration failed. Please try again.");
-      }
+      console.log("Registering individual with:", { 
+        planType: parseInt(individualPlan), 
+        detailsHash: DETAILS_HASH, 
+        referrerAddress 
+      })
+      
+      const registerCall = prepareContractCall({
+        contract: getSavingsContract(),
+        method: "registerIndividual",
+        params: [parseInt(individualPlan), DETAILS_HASH, referrerAddress],
+      })
+      
+      sendTransaction(registerCall, {
+        onSuccess: (result) => {
+          console.log("Registration successful:", result)
+          setSuccess("Registration successful! Redirecting to verification...")
+          setTimeout(() => {
+            router.push("/verify")
+          }, 2000)
+        },
+        onError: (error) => {
+          console.error("Registration failed:", error)
+          setError("Registration failed: " + error.message)
+        }
+      })
     } catch (error) {
-      setError("Registration failed: " + error.message);
-      console.error("Error registering individual:", error);
-    } finally {
-      setIsRegistering(false);
+      setError("Registration failed: " + error.message)
+      console.error("Error registering individual:", error)
     }
-  };
+  }
 
   const handleFamilyRegistration = async () => {
-    setIsRegistering(true);
-    setError("");
-    setSuccess("");
+    if (!account) {
+      setError("Please connect your wallet first")
+      return
+    }
+
+    setError("")
+    setSuccess("")
 
     try {
       // Validate family members
       const validMembers = familyMembers.filter((member) => 
         member.address.match(/^0x[a-fA-F0-9]{40}$/)
       ).map(member => ({
-        address: member.address,
+        member: member.address,
         detailsHash: DETAILS_HASH
-      }));
+      }))
       
       if (validMembers.length < 2) {
-        setError("Please add at least 2 valid family members with wallet addresses.");
-        setIsRegistering(false);
-        return;
+        setError("Please add at least 2 valid family members with wallet addresses.")
+        return
       }
       
       if (!familyName.trim()) {
-        setError("Please provide a family name.");
-        setIsRegistering(false);
-        return;
+        setError("Please provide a family name.")
+        return
       }
 
-      // Connect wallet first
-      const walletResult = await connectWallet();
-      if (!walletResult.success) {
-        setError("Failed to connect wallet: " + walletResult.error);
-        setIsRegistering(false);
-        return;
-      }
-
-      const result = await registerFamily(validMembers, Number.parseInt(familyPlan), familyName, "0x0000000000000000000000000000000000000000");
-      if (result.success) {
-        setSuccess("Family registration successful! Redirecting to verification...");
-        setTimeout(() => {
-          router.push("/verify");
-        }, 2000);
-      } else {
-        setError(result.error || "Family registration failed. Please try again.");
-      }
+      console.log("Registering family with:", { 
+        familyMembers: validMembers, 
+        planType: parseInt(familyPlan), 
+        familyName, 
+        referrer: ethers.ZeroAddress 
+      })
+      
+      const registerCall = prepareContractCall({
+        contract: getSavingsContract(),
+        method: "registerFamily",
+        params: [validMembers, parseInt(familyPlan), familyName, ethers.ZeroAddress],
+      })
+      
+      sendTransaction(registerCall, {
+        onSuccess: (result) => {
+          console.log("Family registration successful:", result)
+          setSuccess("Family registration successful! Redirecting to verification...")
+          setTimeout(() => {
+            router.push("/verify")
+          }, 2000)
+        },
+        onError: (error) => {
+          console.error("Family registration failed:", error)
+          setError("Family registration failed: " + error.message)
+        }
+      })
     } catch (error) {
-      setError("Registration failed: " + error.message);
-      console.error("Error registering family:", error);
-    } finally {
-      setIsRegistering(false);
+      setError("Registration failed: " + error.message)
+      console.error("Error registering family:", error)
     }
-  };
+  }
+
+  // Show wallet connection prompt if not connected
+  if (!account || !wallet) {
+    return (
+      <div className="container mx-auto px-4 md:px-6 py-8">
+        <div className="max-w-md mx-auto text-center">
+          <h2 className="text-2xl font-bold mb-2 dark:text-white">Connect Your Wallet</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">
+            Please connect your wallet to register with HealFi
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Use the "Connect Wallet" button in the navigation bar to get started.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto px-4 md:px-6 py-8">
@@ -144,6 +190,11 @@ export default function RegisterPage() {
               <ShieldCheck className="mr-2 h-5 w-5" />
               <p className="text-sm">After registration, you'll be redirected to verify your identity</p>
             </div>
+          </div>
+          <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+            <p className="text-sm text-green-800 dark:text-green-300">
+              <strong>Connected:</strong> {account.address.slice(0, 6)}...{account.address.slice(-4)}
+            </p>
           </div>
         </div>
 
@@ -177,6 +228,7 @@ export default function RegisterPage() {
                       value={referrer}
                       onChange={(e) => setReferrer(e.target.value)}
                       className="dark:border-gray-700"
+                      disabled={isRegistering}
                     />
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       Enter the wallet address of who referred you (optional)
@@ -190,6 +242,7 @@ export default function RegisterPage() {
                       value={individualPlan}
                       onValueChange={setIndividualPlan}
                       className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                      disabled={isRegistering}
                     >
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="0" id="basic" />
@@ -268,6 +321,7 @@ export default function RegisterPage() {
                       value={familyName}
                       onChange={(e) => setFamilyName(e.target.value)}
                       className="dark:border-gray-700"
+                      disabled={isRegistering}
                     />
                   </div>
 
@@ -278,6 +332,7 @@ export default function RegisterPage() {
                       value={familyPlan}
                       onValueChange={setFamilyPlan}
                       className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                      disabled={isRegistering}
                     >
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="0" id="family-basic" />
@@ -318,6 +373,7 @@ export default function RegisterPage() {
                               size="icon"
                               onClick={() => handleRemoveFamilyMember(index)}
                               className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 ml-auto"
+                              disabled={isRegistering}
                             >
                               <Trash className="h-4 w-4" />
                             </Button>
@@ -328,6 +384,7 @@ export default function RegisterPage() {
                           value={member.address}
                           onChange={(e) => handleFamilyMemberChange(index, e.target.value)}
                           className="dark:border-gray-700"
+                          disabled={isRegistering}
                         />
                       </div>
                     ))}
@@ -336,6 +393,7 @@ export default function RegisterPage() {
                       size="sm"
                       onClick={handleAddFamilyMember}
                       className="mt-2 dark:border-gray-700 dark:text-gray-200"
+                      disabled={isRegistering}
                     >
                       <Plus className="h-4 w-4 mr-2" /> Add Family Member
                     </Button>

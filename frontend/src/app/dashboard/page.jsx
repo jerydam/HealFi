@@ -6,78 +6,138 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
 import { Wallet, CreditCard, Heart, ArrowUpRight, Plus, Clock, CheckCircle, Loader2, ExternalLink, AlertCircle, ShieldCheck } from "lucide-react";
-import { connectWallet, getSavingsInfo, getLoanInfo, getHSTBalance, getUserActivities } from "@/lib/web3";
+import { 
+  useActiveAccount, 
+  useReadContract,
+  useActiveWallet
+} from "thirdweb/react";
+import { 
+  getSavingsContract, 
+  getLoanContract, 
+  getHSTContract,
+  getUserActivities // Note: This needs to be implemented with ThirdWeb events
+} from "@/lib/web3";
 
 export default function Dashboard() {
   const router = useRouter();
-  const [walletAddress, setWalletAddress] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const account = useActiveAccount();
+  const wallet = useActiveWallet();
   const [isVerified, setIsVerified] = useState(false);
-  const [savingsInfo, setSavingsInfo] = useState(null);
-  const [loanInfo, setLoanInfo] = useState(null);
-  const [hstBalance, setHstBalance] = useState("0");
   const [activities, setActivities] = useState([]);
-  const [error, setError] = useState("");
 
+  // Check verification status from localStorage
   useEffect(() => {
-    const initWallet = async () => {
-      try {
-        const result = await connectWallet();
-        if (result.success) {
-          setWalletAddress(result.address);
-          const verificationStatus = localStorage.getItem(`verification_${result.address}`);
-          setIsVerified(verificationStatus === "true");
-          await loadUserData(result.address);
-        } else {
-          setError("Please connect your wallet");
-          setIsLoading(false);
+    if (account?.address) {
+      const verificationStatus = localStorage.getItem(`verification_${account.address}`);
+      setIsVerified(verificationStatus === "true");
+    }
+  }, [account?.address]);
+
+  // Get savings info using ThirdWeb hooks
+  const { 
+    data: savingsInfo, 
+    isLoading: savingsLoading,
+    error: savingsError 
+  } = useReadContract({
+    contract: getSavingsContract(),
+    method: "getSavingsInfo",
+    params: [account?.address || ""],
+    queryOptions: {
+      enabled: !!account?.address,
+    },
+  });
+
+  // Get loan info using ThirdWeb hooks
+  const { 
+    data: loanData, 
+    isLoading: loanLoading 
+  } = useReadContract({
+    contract: getLoanContract(),
+    method: "loans",
+    params: [account?.address || ""],
+    queryOptions: {
+      enabled: !!account?.address,
+    },
+  });
+
+  // Get HST balance using ThirdWeb hooks
+  const { 
+    data: hstBalance, 
+    isLoading: hstLoading 
+  } = useReadContract({
+    contract: getHSTContract(),
+    method: "balanceOf",
+    params: [account?.address || ""],
+    queryOptions: {
+      enabled: !!account?.address,
+    },
+  });
+
+  // Load user activities (placeholder - needs proper implementation)
+  useEffect(() => {
+    const loadActivities = async () => {
+      if (account?.address) {
+        try {
+          const userActivities = await getUserActivities(account.address);
+          setActivities(userActivities.slice(0, 5));
+        } catch (error) {
+          console.error("Error loading activities:", error);
         }
-      } catch (err) {
-        setError("Error connecting wallet");
-        setIsLoading(false);
       }
     };
+    
+    loadActivities();
+  }, [account?.address]);
 
-    initWallet();
-  }, []);
-
-  const loadUserData = async (address) => {
-    setIsLoading(true);
-    try {
-      const savings = await getSavingsInfo(address);
-      if (!savings) {
+  // Redirect if not registered
+  useEffect(() => {
+    if (savingsInfo && !savingsLoading && !savingsError) {
+      const isRegistered = savingsInfo.accountType > 0 || savingsInfo.balance > 0;
+      if (!isRegistered) {
         router.push("/register");
-        return;
       }
-      setSavingsInfo(savings);
-      
-      const loan = await getLoanInfo(address);
-      setLoanInfo(loan);
-      
-      const balance = await getHSTBalance(address);
-      setHstBalance(balance);
-      
-      const userActivities = await getUserActivities(address);
-      setActivities(userActivities.slice(0, 5));
-    } catch (err) {
-      setError("Error loading user data: " + err.message);
-    } finally {
-      setIsLoading(false);
     }
+  }, [savingsInfo, savingsLoading, savingsError, router]);
+
+  // Format blockchain data
+  const formatSavingsInfo = (data) => {
+    if (!data) return null;
+    return {
+      balance: (Number(data.balance) / 1e6).toFixed(2), // Convert from wei to USDT
+      hstEarned: (Number(data.hstEarned) / 1e18).toFixed(2), // Convert from wei to HST
+      streak: Number(data.streak),
+      accountType: Number(data.accountType),
+    };
+  };
+
+  const formatLoanInfo = (data) => {
+    if (!data || Number(data.amount) === 0) return null;
+    return {
+      amount: (Number(data.amount) / 1e6).toFixed(2),
+      repaid: data.repaid,
+      dueDate: new Date(Number(data.dueDate) * 1000),
+      interest: (Number(data.interest) / 1e6).toFixed(2),
+    };
+  };
+
+  const formatHSTBalance = (balance) => {
+    if (!balance) return "0.00";
+    return (Number(balance) / 1e18).toFixed(2);
   };
 
   const calculateSavingsProgress = () => {
-    if (!savingsInfo) return 0;
+    const savings = formatSavingsInfo(savingsInfo);
+    if (!savings) return 0;
     const goal = 10;
-    return Math.min(100, (Number.parseFloat(savingsInfo.balance) / goal) * 100);
+    return Math.min(100, (parseFloat(savings.balance) / goal) * 100);
   };
 
   const calculateLoanProgress = () => {
-    if (!loanInfo || loanInfo.repaid || !loanInfo.dueDate) return 0;
+    const loan = formatLoanInfo(loanData);
+    if (!loan || loan.repaid) return 0;
     const now = new Date();
-    const dueDate = new Date(loanInfo.dueDate);
+    const dueDate = loan.dueDate;
     const loanDuration = 30 * 24 * 60 * 60 * 1000;
     const elapsed = now - (dueDate - loanDuration);
     return Math.min(100, (elapsed / loanDuration) * 100);
@@ -95,7 +155,7 @@ export default function Dashboard() {
   };
 
   const getExplorerLink = (txHash) => {
-    return `https://celo-alfajores.blockscout.com//tx/${txHash}`;
+    return `https://celo-alfajores.blockscout.com/tx/${txHash}`;
   };
 
   const getActivityIcon = (type) => {
@@ -117,17 +177,24 @@ export default function Dashboard() {
   };
 
   const formatActivityDetails = (details) => {
-    // Remove any details hash or long hash-like strings from display
     if (typeof details === 'string') {
-      // Remove IPFS hashes (starting with Qm and 46+ characters)
       const cleanedDetails = details.replace(/Qm[a-zA-Z0-9]{44,}/g, '');
-      // Remove any other long hash-like strings (40+ alphanumeric characters)
       return cleanedDetails.replace(/[a-zA-Z0-9]{40,}/g, '').trim();
     }
     return details;
   };
 
-  if (isLoading) {
+  // Show loading state
+  if (!account || !wallet) {
+    return (
+      <div className="container mx-auto px-4 md:px-6 py-12 text-center">
+        <h2 className="text-2xl font-bold mb-2 dark:text-white">Connect Your Wallet</h2>
+        <p className="text-gray-500 dark:text-gray-400 mb-6">Please connect your wallet to access the dashboard</p>
+      </div>
+    );
+  }
+
+  if (savingsLoading || loanLoading || hstLoading) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-12 flex items-center justify-center">
         <div className="text-center">
@@ -138,26 +205,18 @@ export default function Dashboard() {
     );
   }
 
-  if (error || !walletAddress) {
+  if (savingsError) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-12 text-center">
         <h2 className="text-2xl font-bold mb-2 dark:text-white">Error</h2>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">{error || "Please connect your wallet"}</p>
-        <Button
-          onClick={async () => {
-            const result = await connectWallet();
-            if (result.success) {
-              setWalletAddress(result.address);
-              await loadUserData(result.address);
-            }
-          }}
-          className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-        >
-          Connect Wallet
-        </Button>
+        <p className="text-gray-500 dark:text-gray-400 mb-6">Failed to load dashboard data</p>
       </div>
     );
   }
+
+  const savings = formatSavingsInfo(savingsInfo);
+  const loan = formatLoanInfo(loanData);
+  const hstBalanceFormatted = formatHSTBalance(hstBalance);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -208,10 +267,10 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-xl sm:text-2xl font-bold dark:text-white">
-                    {savingsInfo ? Number.parseFloat(savingsInfo.balance).toFixed(2) : "0.00"} USDT
+                    {savings?.balance || "0.00"} USDT
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {savingsInfo ? Number.parseFloat(savingsInfo.hstEarned).toFixed(2) : "0.00"} HST earned
+                    {savings?.hstEarned || "0.00"} HST earned
                   </p>
                   <div className="mt-4">
                     <div className="flex justify-between text-xs mb-1">
@@ -238,14 +297,14 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-xl sm:text-2xl font-bold dark:text-white">
-                    {loanInfo && !loanInfo.repaid ? Number.parseFloat(loanInfo.amount).toFixed(2) : "0.00"} USDT
+                    {loan ? loan.amount : "0.00"} USDT
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {loanInfo && !loanInfo.repaid && loanInfo.dueDate
-                      ? `Due on ${new Date(loanInfo.dueDate).toLocaleDateString("en-US")}`
+                    {loan && !loan.repaid && loan.dueDate
+                      ? `Due on ${loan.dueDate.toLocaleDateString("en-US")}`
                       : "No active loan"}
                   </p>
-                  {loanInfo && !loanInfo.repaid && (
+                  {loan && !loan.repaid && (
                     <>
                       <div className="mt-4 flex items-center text-xs text-gray-500 dark:text-gray-400">
                         <Clock className="mr-1 h-3 w-3" />
@@ -262,7 +321,7 @@ export default function Dashboard() {
                     className="w-full text-sm sm:text-base"
                     disabled={!isVerified}
                   >
-                    {isVerified ? (loanInfo && !loanInfo.repaid ? "Manage Loan" : "Apply for Loan") : "Verify to Access Loans"}
+                    {isVerified ? (loan && !loan.repaid ? "Manage Loan" : "Apply for Loan") : "Verify to Access Loans"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -273,7 +332,7 @@ export default function Dashboard() {
                   <Heart className="h-4 w-4 text-red-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold dark:text-white">{Number.parseFloat(hstBalance).toFixed(2)} HST</div>
+                  <div className="text-xl sm:text-2xl font-bold dark:text-white">{hstBalanceFormatted} HST</div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Health Support Tokens</p>
                   <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
                     <div className="flex items-center">
@@ -413,16 +472,13 @@ export default function Dashboard() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
                         <div className="mb-2 sm:mb-0">
                           <p className="font-medium dark:text-white">Connected Wallet</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{account.address.slice(0, 6)}...{account.address.slice(-4)}</p>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
                           className="w-full sm:w-auto"
-                          onClick={() => {
-                            setWalletAddress("");
-                            router.push("/");
-                          }}
+                          onClick={() => router.push("/")}
                         >
                           Disconnect
                         </Button>
