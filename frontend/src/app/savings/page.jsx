@@ -16,10 +16,10 @@ import {
 import { 
   getSavingsContract, 
   getUSDTContract,
-  getUserActivities, // Note: This needs to be implemented with ThirdWeb events
-  ethers,
-  prepareContractCall
+  getUserActivities // Note: This needs to be implemented with ThirdWeb events
 } from "@/lib/web3";
+import { prepareContractCall } from "thirdweb";
+import { ethers } from "ethers";
 
 export default function SavingsPage() {
   const router = useRouter();
