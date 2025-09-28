@@ -7,91 +7,176 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowUp, ArrowDown, TrendingUp, Info, Loader2, ExternalLink, ShieldCheck, ShieldX } from "lucide-react";
-import { connectWallet, getSavingsInfo, deposit, withdraw, getUSDTBalance, getUserActivities } from "@/lib/web3";
+import { 
+  useActiveAccount, 
+  useReadContract,
+  useSendTransaction,
+  useActiveWallet
+} from "thirdweb/react";
+import { 
+  getSavingsContract, 
+  getUSDTContract,
+  getUserActivities, // Note: This needs to be implemented with ThirdWeb events
+  ethers,
+  prepareContractCall
+} from "@/lib/web3";
 
 export default function SavingsPage() {
   const router = useRouter();
-  const [walletAddress, setWalletAddress] = useState("");
+  const account = useActiveAccount();
+  const wallet = useActiveWallet();
   const [isVerified, setIsVerified] = useState(false);
-  const [savingsInfo, setSavingsInfo] = useState(null);
-  const [usdtBalance, setUsdtBalance] = useState("0");
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [transactions, setTransactions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDepositing, setIsDepositing] = useState(false);
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  
+  // ThirdWeb transaction hooks
+  const { mutate: sendTransaction, isPending: isTransactionPending } = useSendTransaction();
 
   useEffect(() => {
-    const initWallet = async () => {
-      try {
-        const result = await connectWallet();
-        if (result.success) {
-          setWalletAddress(result.address);
-          const verificationStatus = localStorage.getItem(`verification_${result.address}`);
-          setIsVerified(verificationStatus === "true");
-          await loadUserData(result.address);
-        } else {
-          setIsLoading(false);
+    if (account?.address) {
+      const verificationStatus = localStorage.getItem(`verification_${account.address}`);
+      setIsVerified(verificationStatus === "true");
+    }
+  }, [account?.address]);
+
+  // Get savings info using ThirdWeb hooks
+  const { 
+    data: savingsInfo, 
+    isLoading: savingsLoading,
+    error: savingsError,
+    refetch: refetchSavings
+  } = useReadContract({
+    contract: getSavingsContract(),
+    method: "getSavingsInfo",
+    params: [account?.address || ""],
+    queryOptions: {
+      enabled: !!account?.address,
+    },
+  });
+
+  // Get USDT balance using ThirdWeb hooks
+  const { 
+    data: usdtBalance, 
+    isLoading: usdtLoading,
+    refetch: refetchUSDT
+  } = useReadContract({
+    contract: getUSDTContract(),
+    method: "balanceOf",
+    params: [account?.address || ""],
+    queryOptions: {
+      enabled: !!account?.address,
+    },
+  });
+
+  // Load user activities
+  useEffect(() => {
+    const loadActivities = async () => {
+      if (account?.address) {
+        try {
+          const activities = await getUserActivities(account.address);
+          setTransactions(activities.filter((tx) => tx.type === "Deposit" || tx.type === "Withdrawal").slice(0, 5));
+        } catch (error) {
+          console.error("Error loading activities:", error);
         }
-      } catch (error) {
-        console.error("Error initializing wallet:", error);
-        setIsLoading(false);
       }
     };
+    
+    loadActivities();
+  }, [account?.address]);
 
-    initWallet();
-  }, []);
-
-  const loadUserData = async (address) => {
-    setIsLoading(true);
-    try {
-      const savings = await getSavingsInfo(address);
-      if (!savings) {
+  // Redirect if not registered
+  useEffect(() => {
+    if (savingsInfo && !savingsLoading && !savingsError) {
+      const isRegistered = savingsInfo.accountType > 0 || savingsInfo.balance > 0;
+      if (!isRegistered) {
         router.push("/register");
-        return;
       }
-      setSavingsInfo(savings);
-      
-      const balance = await getUSDTBalance(address);
-      setUsdtBalance(balance);
-      
-      const activities = await getUserActivities(address);
-      setTransactions(activities.filter((tx) => tx.type === "Deposit" || tx.type === "Withdrawal").slice(0, 5));
-    } catch (error) {
-      console.error("Error loading user data:", error);
-      setError("Error loading savings data: " + error.message);
-    } finally {
-      setIsLoading(false);
     }
+  }, [savingsInfo, savingsLoading, savingsError, router]);
+
+  // Format blockchain data
+  const formatSavingsInfo = (data) => {
+    if (!data) return null;
+    return {
+      balance: (Number(data.balance) / 1e6).toFixed(2),
+      hstEarned: (Number(data.hstEarned) / 1e18).toFixed(2),
+      streak: Number(data.streak),
+      accountType: Number(data.accountType),
+    };
+  };
+
+  const formatUSDTBalance = (balance) => {
+    if (!balance) return "0.00";
+    return (Number(balance) / 1e6).toFixed(2);
   };
 
   const handleDeposit = async () => {
-    if (!depositAmount || Number.parseFloat(depositAmount) <= 0) {
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
       setError("Please enter a valid deposit amount");
       return;
     }
     
-    setIsDepositing(true);
     setError("");
     setSuccess("");
     
     try {
-      const result = await deposit(depositAmount);
-      if (result.success) {
-        setSuccess("Deposit successful!");
-        setDepositAmount("");
-        await loadUserData(walletAddress);
-      } else {
-        setError(result.error || "Deposit failed");
-      }
+      const amountInWei = ethers.parseUnits(depositAmount.toString(), 6);
+      
+      // First approve USDT spending
+      const approveCall = prepareContractCall({
+        contract: getUSDTContract(),
+        method: "approve",
+        params: [getSavingsContract().address, amountInWei],
+      });
+      
+      await new Promise((resolve, reject) => {
+        sendTransaction(approveCall, {
+          onSuccess: (result) => {
+            console.log("USDT approval successful:", result);
+            resolve(result);
+          },
+          onError: (error) => {
+            console.error("USDT approval failed:", error);
+            reject(error);
+          }
+        });
+      });
+      
+      // Wait for approval to be confirmed
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Then make the deposit
+      const depositCall = prepareContractCall({
+        contract: getSavingsContract(),
+        method: "deposit",
+        params: [amountInWei],
+      });
+      
+      await new Promise((resolve, reject) => {
+        sendTransaction(depositCall, {
+          onSuccess: (result) => {
+            console.log("Deposit successful:", result);
+            setSuccess("Deposit successful!");
+            setDepositAmount("");
+            // Refetch balances
+            refetchSavings();
+            refetchUSDT();
+            resolve(result);
+          },
+          onError: (error) => {
+            console.error("Deposit failed:", error);
+            setError("Deposit failed: " + error.message);
+            reject(error);
+          }
+        });
+      });
+      
     } catch (error) {
       setError("Failed to deposit: " + error.message);
       console.error(error);
-    } finally {
-      setIsDepositing(false);
     }
   };
 
@@ -101,34 +186,51 @@ export default function SavingsPage() {
       return;
     }
     
-    if (!withdrawAmount || Number.parseFloat(withdrawAmount) <= 0) {
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
       setError("Please enter a valid withdrawal amount");
       return;
     }
     
-    if (Number.parseFloat(withdrawAmount) > Number.parseFloat(savingsInfo?.balance || 0)) {
+    const savings = formatSavingsInfo(savingsInfo);
+    if (parseFloat(withdrawAmount) > parseFloat(savings?.balance || 0)) {
       setError("Insufficient balance for withdrawal");
       return;
     }
     
-    setIsWithdrawing(true);
     setError("");
     setSuccess("");
     
     try {
-      const result = await withdraw(withdrawAmount);
-      if (result.success) {
-        setSuccess("Withdrawal successful!");
-        setWithdrawAmount("");
-        await loadUserData(walletAddress);
-      } else {
-        setError(result.error || "Withdrawal failed");
-      }
+      const amountInWei = ethers.parseUnits(withdrawAmount.toString(), 6);
+      
+      const withdrawCall = prepareContractCall({
+        contract: getSavingsContract(),
+        method: "withdraw",
+        params: [amountInWei],
+      });
+      
+      await new Promise((resolve, reject) => {
+        sendTransaction(withdrawCall, {
+          onSuccess: (result) => {
+            console.log("Withdrawal successful:", result);
+            setSuccess("Withdrawal successful!");
+            setWithdrawAmount("");
+            // Refetch balances
+            refetchSavings();
+            refetchUSDT();
+            resolve(result);
+          },
+          onError: (error) => {
+            console.error("Withdrawal failed:", error);
+            setError("Withdrawal failed: " + error.message);
+            reject(error);
+          }
+        });
+      });
+      
     } catch (error) {
       setError("Failed to withdraw: " + error.message);
       console.error(error);
-    } finally {
-      setIsWithdrawing(false);
     }
   };
 
@@ -144,10 +246,21 @@ export default function SavingsPage() {
   };
 
   const getExplorerLink = (txHash) => {
-    return `https://celo-alfajores.blockscout.com//tx/${txHash}`;
+    return `https://celo-alfajores.blockscout.com/tx/${txHash}`;
   };
 
-  if (isLoading) {
+  if (!account || !wallet) {
+    return (
+      <div className="container mx-auto px-4 md:px-6 py-12">
+        <div className="max-w-md mx-auto text-center">
+          <h2 className="text-2xl font-bold mb-2 dark:text-white">Connect Your Wallet</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">Please connect your wallet to access savings features</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (savingsLoading || usdtLoading) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-12 flex items-center justify-center">
         <div className="text-center">
@@ -158,30 +271,8 @@ export default function SavingsPage() {
     );
   }
 
-  if (!walletAddress) {
-    return (
-      <div className="container mx-auto px-4 md:px-6 py-12">
-        <div className="max-w-md mx-auto text-center">
-          <h2 className="text-2xl font-bold mb-2 dark:text-white">Connect Your Wallet</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">Please connect your wallet to access savings features</p>
-          <Button
-            onClick={async () => {
-              const result = await connectWallet();
-              if (result.success) {
-                setWalletAddress(result.address);
-                const verificationStatus = localStorage.getItem(`verification_${result.address}`);
-                setIsVerified(verificationStatus === "true");
-                await loadUserData(result.address);
-              }
-            }}
-            className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-          >
-            Connect Wallet
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const savings = formatSavingsInfo(savingsInfo);
+  const usdtBalanceFormatted = formatUSDTBalance(usdtBalance);
 
   return (
     <div className="container mx-auto px-4 md:px-6 py-6 sm:py-8">
@@ -223,7 +314,7 @@ export default function SavingsPage() {
               <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2">
                 <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Balance</span>
                 <span className="text-2xl sm:text-3xl font-bold dark:text-white">
-                  {savingsInfo ? Number.parseFloat(savingsInfo.balance).toFixed(2) : "0.00"} USDT
+                  {savings?.balance || "0.00"} USDT
                 </span>
               </div>
               
@@ -233,22 +324,22 @@ export default function SavingsPage() {
                   <span className="font-medium dark:text-white">HST Earnings</span>
                 </div>
                 <p className="text-lg font-bold dark:text-white">
-                  {savingsInfo ? Number.parseFloat(savingsInfo.hstEarned).toFixed(2) : "0.00"} HST
+                  {savings?.hstEarned || "0.00"} HST
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Streak: {savingsInfo?.streak || 0} days
+                  Streak: {savings?.streak || 0} days
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
                   <p className="text-sm text-gray-500 dark:text-gray-400">USDT Balance</p>
-                  <p className="text-lg font-bold dark:text-white">{Number.parseFloat(usdtBalance).toFixed(2)}</p>
+                  <p className="text-lg font-bold dark:text-white">{usdtBalanceFormatted}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Account Type</p>
                   <p className="text-lg font-bold dark:text-white">
-                    {savingsInfo?.accountType === 1 ? "Family" : "Individual"}
+                    {savings?.accountType === 1 ? "Family" : "Individual"}
                   </p>
                 </div>
               </div>
@@ -283,7 +374,7 @@ export default function SavingsPage() {
                       className="dark:border-gray-700"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Minimum deposit: 0.1 USDT. Available balance: {Number.parseFloat(usdtBalance).toFixed(2)} USDT
+                      Minimum deposit: 0.1 USDT. Available balance: {usdtBalanceFormatted} USDT
                     </p>
                   </div>
 
@@ -305,10 +396,10 @@ export default function SavingsPage() {
                 <CardFooter className="flex flex-col">
                   <Button
                     onClick={handleDeposit}
-                    disabled={isDepositing || !depositAmount || Number.parseFloat(depositAmount) <= 0}
+                    disabled={isTransactionPending || !depositAmount || parseFloat(depositAmount) <= 0}
                     className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
                   >
-                    {isDepositing ? (
+                    {isTransactionPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Processing...
@@ -352,7 +443,7 @@ export default function SavingsPage() {
                       className="dark:border-gray-700"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Available balance: {savingsInfo ? Number.parseFloat(savingsInfo.balance).toFixed(2) : "0.00"} USDT
+                      Available balance: {savings?.balance || "0.00"} USDT
                       {!isVerified && " (Verification required for withdrawals)"}
                     </p>
                   </div>
@@ -385,14 +476,14 @@ export default function SavingsPage() {
                     <Button
                       onClick={handleWithdraw}
                       disabled={
-                        isWithdrawing ||
+                        isTransactionPending ||
                         !withdrawAmount ||
-                        Number.parseFloat(withdrawAmount) <= 0 ||
-                        Number.parseFloat(withdrawAmount) > Number.parseFloat(savingsInfo?.balance || 0)
+                        parseFloat(withdrawAmount) <= 0 ||
+                        parseFloat(withdrawAmount) > parseFloat(savings?.balance || 0)
                       }
                       className="w-full bg-orange-600 hover:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-700"
                     >
-                      {isWithdrawing ? (
+                      {isTransactionPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Processing...
@@ -441,7 +532,7 @@ export default function SavingsPage() {
                       </div>
                       <div className="mt-2 sm:mt-0 sm:text-right">
                         <p className="font-medium dark:text-white">
-                          {tx.details.includes("USDT") ? tx.details : `${Number.parseFloat(tx.amount || 0).toFixed(2)} USDT`}
+                          {tx.details.includes("USDT") ? tx.details : `${parseFloat(tx.amount || 0).toFixed(2)} USDT`}
                         </p>
                         {tx.txHash && (
                           <a

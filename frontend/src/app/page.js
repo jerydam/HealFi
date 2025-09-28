@@ -5,82 +5,97 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Heart, Shield, Wallet, CreditCard, Users, ChevronRight, TrendingUp, ArrowRight, CheckCircle } from "lucide-react";
-import { connectWallet, getPlatformMetrics, getSavingsInfo } from "@/lib/web3";
+import { 
+  useActiveAccount, 
+  useReadContract,
+  useActiveWallet
+} from "thirdweb/react";
+import { getMetricsContract, getSavingsContract } from "@/lib/web3";
 
 export default function Home() {
   const router = useRouter();
-  const [metrics, setMetrics] = useState({
-    totalSavings: "0",
-    totalLoansDisbursed: "0",
-    totalUsers: 0,
-    totalHSTRedeemed: "0",
-    totalFundsMatched: "0"
+  const account = useActiveAccount();
+  const wallet = useActiveWallet();
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  // Get platform metrics using ThirdWeb hooks
+  const { 
+    data: metricsData, 
+    isLoading: metricsLoading 
+  } = useReadContract({
+    contract: getMetricsContract(),
+    method: "getPlatformMetrics",
+    params: [],
   });
-  const [isLoading, setIsLoading] = useState(false);
-  const [walletAddress, setWalletAddress] = useState("");
 
-  useEffect(() => {
-    const loadMetrics = async () => {
-      try {
-        const platformMetrics = await getPlatformMetrics();
-        setMetrics(platformMetrics);
-      } catch (error) {
-        console.error("Error loading platform metrics:", error);
-      }
+  // Get user savings info if wallet is connected
+  const { 
+    data: savingsInfo, 
+    isLoading: savingsLoading 
+  } = useReadContract({
+    contract: getSavingsContract(),
+    method: "getSavingsInfo",
+    params: [account?.address || ""],
+    queryOptions: {
+      enabled: !!account?.address,
+    },
+  });
+
+  // Format metrics data
+  const formatMetrics = (data) => {
+    if (!data) return {
+      totalSavings: "0",
+      totalLoansDisbursed: "0",
+      totalUsers: 0,
+      totalHSTRedeemed: "0",
+      totalFundsMatched: "0"
     };
-    loadMetrics();
 
-    // Check if wallet is already connected
-    const checkWalletConnection = async () => {
-      try {
-        if (typeof window !== "undefined" && window.ethereum) {
-          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-          if (accounts.length > 0) {
-            setWalletAddress(accounts[0]);
-          }
-        }
-      } catch (error) {
-        console.error("Error checking wallet connection:", error);
-      }
+    return {
+      totalSavings: (Number(data.totalSavings) / 1e6).toFixed(0),
+      totalLoansDisbursed: (Number(data.totalLoansDisbursed) / 1e6).toFixed(0),
+      totalUsers: Number(data.totalUsers),
+      totalHSTRedeemed: (Number(data._totalHSTRedeemed) / 1e18).toFixed(0),
+      totalFundsMatched: (Number(data.totalFundsMatched) / 1e6).toFixed(0)
     };
-    checkWalletConnection();
-  }, []);
+  };
 
-  const handleConnectWallet = async () => {
-    setIsLoading(true);
+  const metrics = formatMetrics(metricsData);
+
+  const handleGetStarted = async () => {
+    if (!account || !wallet) {
+      // No wallet connected - user needs to connect via WalletConnectButton
+      alert("Please connect your wallet using the &apos;Connect Wallet&apos; button in the navigation bar.");
+      return;
+    }
+
+    setIsNavigating(true);
     try {
-      const result = await connectWallet();
-      if (result.success) {
-        setWalletAddress(result.address);
-        
-        // Check if user is already registered
-        const savingsInfo = await getSavingsInfo(result.address);
-        if (savingsInfo) {
-          // User is registered, go to dashboard
-          router.push("/dashboard");
-        } else {
-          // User is not registered, go to registration
-          router.push("/register");
-        }
+      // Check if user is already registered
+      if (savingsInfo && (savingsInfo.accountType > 0 || savingsInfo.balance > 0)) {
+        // User is registered, go to dashboard
+        router.push("/dashboard");
       } else {
-        alert("Failed to connect wallet: " + (result.error || "Please try again."));
+        // User is not registered, go to registration
+        router.push("/register");
       }
     } catch (error) {
-      console.error("Error connecting wallet:", error);
-      alert("Error connecting wallet. Please make sure you have MetaMask installed.");
+      console.error("Error checking user status:", error);
+      // Default to registration page if there's an error
+      router.push("/register");
     } finally {
-      setIsLoading(false);
+      setIsNavigating(false);
     }
   };
 
-  const handleGetStarted = () => {
-    if (walletAddress) {
-      // Wallet already connected, check registration status
-      handleConnectWallet();
-    } else {
-      // Connect wallet first
-      handleConnectWallet();
+  const getButtonText = () => {
+    if (isNavigating) return "Loading...";
+    if (!account) return "Connect Wallet to Start";
+    if (savingsLoading) return "Checking Status...";
+    if (savingsInfo && (savingsInfo.accountType > 0 || savingsInfo.balance > 0)) {
+      return "Go to Dashboard";
     }
+    return "Get Started";
   };
 
   return (
@@ -111,21 +126,21 @@ export default function Home() {
                 size="lg"
                 className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transition-all duration-200 w-full sm:w-auto"
                 onClick={handleGetStarted}
-                disabled={isLoading}
+                disabled={isNavigating || savingsLoading}
               >
-                {isLoading ? (
+                {isNavigating ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Connecting...
+                    Loading...
                   </>
-                ) : walletAddress ? (
+                ) : account ? (
                   <>
-                    Go to Dashboard
+                    {getButtonText()}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 ) : (
                   <>
-                    Get Started
+                    Connect Wallet to Start
                     <Wallet className="ml-2 h-4 w-4" />
                   </>
                 )}
@@ -142,11 +157,11 @@ export default function Home() {
               </Button>
             </div>
 
-            {walletAddress && (
+            {account && (
               <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                 <p className="text-sm text-green-700 dark:text-green-300 flex items-center">
                   <CheckCircle className="mr-2 h-4 w-4" />
-                  Wallet connected: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                  Wallet connected: {account.address.slice(0, 6)}...{account.address.slice(-4)}
                 </p>
               </div>
             )}
@@ -175,7 +190,7 @@ export default function Home() {
                 <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold dark:text-white">
-                ${Number.parseFloat(metrics.totalSavings).toLocaleString()}
+                ${metricsLoading ? "..." : Number.parseFloat(metrics.totalSavings).toLocaleString()}
               </h3>
               <p className="text-green-700 dark:text-green-300 font-medium">Total Savings</p>
               <p className="text-sm text-green-600 dark:text-green-400 mt-1">
@@ -191,7 +206,7 @@ export default function Home() {
                 <TrendingUp className="h-5 w-5 text-orange-600 dark:text-orange-400" />
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold dark:text-white">
-                ${Number.parseFloat(metrics.totalLoansDisbursed).toLocaleString()}
+                ${metricsLoading ? "..." : Number.parseFloat(metrics.totalLoansDisbursed).toLocaleString()}
               </h3>
               <p className="text-orange-700 dark:text-orange-300 font-medium">Loans Provided</p>
               <p className="text-sm text-orange-600 dark:text-orange-400 mt-1">
@@ -207,7 +222,7 @@ export default function Home() {
                 <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold dark:text-white">
-                {metrics.totalUsers.toLocaleString()}
+                {metricsLoading ? "..." : metrics.totalUsers.toLocaleString()}
               </h3>
               <p className="text-blue-700 dark:text-blue-300 font-medium">Active Users</p>
               <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
@@ -223,7 +238,7 @@ export default function Home() {
                 <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold dark:text-white">
-                {Number.parseFloat(metrics.totalHSTRedeemed).toLocaleString()}
+                {metricsLoading ? "..." : Number.parseFloat(metrics.totalHSTRedeemed).toLocaleString()}
               </h3>
               <p className="text-purple-700 dark:text-purple-300 font-medium">HST Redeemed</p>
               <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
@@ -305,12 +320,12 @@ export default function Home() {
               size="lg"
               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
               onClick={handleGetStarted}
-              disabled={isLoading}
+              disabled={isNavigating || savingsLoading}
             >
-              {isLoading ? (
+              {isNavigating ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Connecting...
+                  Loading...
                 </>
               ) : (
                 <>
@@ -357,14 +372,14 @@ export default function Home() {
                 <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               </div>
               <h3 className="text-xl font-bold dark:text-white mb-2">Community Support</h3>
-              <p className="text-gray-600 dark:text-gray-300">Join a community of health-conscious individuals supporting each other's healthcare journeys.</p>
+              <p className="text-gray-600 dark:text-gray-300">Join a community of health-conscious individuals supporting each other&apos;s healthcare journeys.</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 md:py-20 bg-white dark:bg-gray-900 text-white">
+      <section className="py-16 md:py-20 bg-gradient-to-r from-green-600 to-blue-600 text-white">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center max-w-4xl mx-auto">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
@@ -381,12 +396,12 @@ export default function Home() {
                 variant="secondary"
                 className="bg-white text-green-600 hover:bg-gray-100 shadow-lg hover:shadow-xl transition-all duration-200 text-lg px-8 py-3"
                 onClick={handleGetStarted}
-                disabled={isLoading}
+                disabled={isNavigating || savingsLoading}
               >
-                {isLoading ? (
+                {isNavigating ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600 mr-2"></div>
-                    Connecting...
+                    Loading...
                   </>
                 ) : (
                   <>
