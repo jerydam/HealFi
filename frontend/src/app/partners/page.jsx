@@ -1,51 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { MapPin, Globe, Loader2 } from "lucide-react"
-import { connectWallet } from "@/lib/web3"
+import { MapPin, Globe } from "lucide-react"
 
 export default function PartnersPage() {
-  const [walletAddress, setWalletAddress] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
-
-  useEffect(() => {
-    const initWallet = async () => {
-      try {
-        const result = await connectWallet()
-        if (result.success) {
-          setWalletAddress(result.address)
-        } else {
-          setError("Please connect your wallet")
-        }
-      } catch (error) {
-        console.error("Error initializing wallet:", error)
-        setError("Error connecting wallet")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    initWallet()
-  }, [])
-
+  // The partner directory is public - browsing it does not require a wallet
   const handleVisitWebsite = (url) => {
     // Placeholder: Redirect to partner website
     window.open(url, "_blank")
-  }
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 md:px-6 py-12 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-green-600 dark:text-green-400" />
-          <p className="text-gray-500 dark:text-gray-400">Loading partners...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -107,7 +71,6 @@ export default function PartnersPage() {
           </Button>
         </div>
       </div>
-      {error && <p className="text-red-500 text-sm mt-4 text-center">{error}</p>}
     </div>
   )
 }

@@ -1,40 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Heart, ArrowRight, CheckCircle, RefreshCw, Repeat, Loader2 } from "lucide-react"
-import { connectWallet, getHSTBalance } from "@/lib/web3"
+import { Heart, CheckCircle, RefreshCw, Repeat, Loader2 } from "lucide-react"
+import { useWallet } from "@/lib/wallet-context"
+import { getHSTBalance } from "@/lib/web3"
 
 export default function TokensPage() {
-  const [walletAddress, setWalletAddress] = useState("")
+  const { address, isConnected, isReconnecting, getSigner } = useWallet()
+  const walletAddress = address || ""
+
   const [isLoading, setIsLoading] = useState(true)
   const [hstBalance, setHstBalance] = useState("0")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
-  useEffect(() => {
-    const initWallet = async () => {
-      try {
-        const result = await connectWallet()
-        if (result.success) {
-          setWalletAddress(result.address)
-          await loadUserData(result.address)
-        } else {
-          setIsLoading(false)
-          setError("Please connect your wallet")
-        }
-      } catch (error) {
-        console.error("Error initializing wallet:", error)
-        setIsLoading(false)
-        setError("Error connecting wallet")
-      }
-    }
-
-    initWallet()
-  }, [])
-
-  const loadUserData = async (address) => {
+  const loadUserData = useCallback(async (address) => {
+    if (!address) return
     setIsLoading(true)
     try {
       const balance = await getHSTBalance(address)
@@ -45,7 +28,15 @@ export default function TokensPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (walletAddress) {
+      loadUserData(walletAddress)
+    } else {
+      setIsLoading(false)
+    }
+  }, [walletAddress, loadUserData])
 
   const handleSwapForUSDT = async () => {
     setError("")
@@ -75,36 +66,27 @@ export default function TokensPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 md:px-6 py-12 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-green-600 dark:text-green-400" />
-          <p className="text-gray-500 dark:text-gray-400">Loading token information...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!walletAddress) {
+  if (!isConnected && !isReconnecting) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-12">
         <div className="max-w-md mx-auto text-center">
           <Heart className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
           <h2 className="text-2xl font-bold mb-2 dark:text-white">Connect Your Wallet</h2>
           <p className="text-gray-500 dark:text-gray-400 mb-6">Please connect your wallet to view your tokens</p>
-          <Button
-            onClick={async () => {
-              const result = await connectWallet()
-              if (result.success) {
-                setWalletAddress(result.address)
-                await loadUserData(result.address)
-              }
-            }}
-            className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-          >
-            Connect Wallet
-          </Button>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Use the &quot;Connect Wallet&quot; button in the navigation bar to get started.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 md:px-6 py-12 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-green-600 dark:text-green-400" />
+          <p className="text-gray-500 dark:text-gray-400">Loading token information...</p>
         </div>
       </div>
     )

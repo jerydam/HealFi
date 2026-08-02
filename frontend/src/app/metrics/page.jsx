@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Wallet, CreditCard, Users, DollarSign, TrendingUp, Heart } from "lucide-react"
-import { getPlatformMetrics, connectWallet } from "@/lib/web3"
+import { Loader2, Wallet, CreditCard, Users, TrendingUp, Heart } from "lucide-react"
+import { getPlatformMetrics } from "@/lib/web3"
+import { ACTIVE_CHAIN } from "@/utils/config"
 
 export default function MetricsPage() {
-  const [walletAddress, setWalletAddress] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [metrics, setMetrics] = useState({
     totalUsers: 0,
@@ -18,28 +18,8 @@ export default function MetricsPage() {
   })
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    const initWallet = async () => {
-      try {
-        const result = await connectWallet()
-        if (result.success) {
-          setWalletAddress(result.address)
-          await loadMetrics()
-        } else {
-          setError("Please connect your wallet")
-          setIsLoading(false)
-        }
-      } catch (error) {
-        console.error("Error initializing wallet:", error)
-        setError("Error connecting wallet")
-        setIsLoading(false)
-      }
-    }
-
-    initWallet()
-  }, [])
-
-  const loadMetrics = async () => {
+  // Platform metrics are public on-chain data - no wallet needed
+  const loadMetrics = useCallback(async () => {
     setIsLoading(true)
     try {
       const platformMetrics = await getPlatformMetrics()
@@ -51,7 +31,11 @@ export default function MetricsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadMetrics()
+  }, [loadMetrics])
 
   if (isLoading) {
     return (
@@ -64,22 +48,16 @@ export default function MetricsPage() {
     )
   }
 
-  if (error || !walletAddress) {
+  if (error) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-12 text-center">
         <h2 className="text-2xl font-bold mb-2 dark:text-white">Error</h2>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">{error || "Please connect your wallet"}</p>
+        <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
         <Button
-          onClick={async () => {
-            const result = await connectWallet()
-            if (result.success) {
-              setWalletAddress(result.address)
-              await loadMetrics()
-            }
-          }}
+          onClick={loadMetrics}
           className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
         >
-          Connect Wallet
+          Retry
         </Button>
       </div>
     )
@@ -231,7 +209,7 @@ export default function MetricsPage() {
           <CardHeader>
             <CardTitle className="dark:text-white">About These Metrics</CardTitle>
             <CardDescription className="dark:text-gray-400">
-              Real-time data from the HealFi smart contracts on Celo Alfajores
+              Real-time data from the HealFi smart contracts on {ACTIVE_CHAIN.chainName}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -273,7 +251,7 @@ export default function MetricsPage() {
                 Refresh Metrics
               </Button>
               <Button 
-                onClick={() => window.open('https://celo-alfajores.blockscout.com//', '_blank')}
+                onClick={() => window.open(ACTIVE_CHAIN.blockExplorerUrls[0], '_blank')}
                 variant="outline" 
                 className="flex-1 dark:border-gray-700 dark:text-gray-200"
               >

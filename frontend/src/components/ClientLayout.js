@@ -2,14 +2,14 @@
 "use client";
 
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { ThirdwebProvider } from "thirdweb/react"; // Import directly from thirdweb
+import { WalletProvider } from "@/lib/wallet-context";
 import Navbar from "@/components/navbar";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 export default function ClientLayout({ children }) {
   return (
-    <ThirdwebProvider>
+    <WalletProvider>
       <ThemeProvider 
         defaultTheme="light" 
         attribute="class"
@@ -33,6 +33,6 @@ export default function ClientLayout({ children }) {
           theme="light"
         />
       </ThemeProvider>
-    </ThirdwebProvider>
+    </WalletProvider>
   );
 }

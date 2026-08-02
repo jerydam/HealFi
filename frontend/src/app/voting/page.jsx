@@ -1,41 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ThumbsUp, ThumbsDown, Send, Loader2 } from "lucide-react"
-import { connectWallet } from "@/lib/web3"
+import { useWallet } from "@/lib/wallet-context"
 
 export default function VotingPage() {
-  const [walletAddress, setWalletAddress] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
+  const { address, isConnected, isReconnecting, getSigner } = useWallet()
+
   const [proposalTitle, setProposalTitle] = useState("")
   const [proposalDescription, setProposalDescription] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
-
-  useEffect(() => {
-    const initWallet = async () => {
-      try {
-        const result = await connectWallet()
-        if (result.success) {
-          setWalletAddress(result.address)
-        } else {
-          setError("Please connect your wallet")
-        }
-      } catch (error) {
-        console.error("Error initializing wallet:", error)
-        setError("Error connecting wallet")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    initWallet()
-  }, [])
 
   const handleVoteFor = async (proposalId) => {
     setError("")
@@ -85,35 +65,16 @@ export default function VotingPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 md:px-6 py-12 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-green-600 dark:text-green-400" />
-          <p className="text-gray-500 dark:text-gray-400">Loading voting information...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!walletAddress) {
+  if (!isConnected && !isReconnecting) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-12">
         <div className="max-w-md mx-auto text-center">
           <Send className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
           <h2 className="text-2xl font-bold mb-2 dark:text-white">Connect Your Wallet</h2>
           <p className="text-gray-500 dark:text-gray-400 mb-6">Please connect your wallet to participate in voting</p>
-          <Button
-            onClick={async () => {
-              const result = await connectWallet()
-              if (result.success) {
-                setWalletAddress(result.address)
-              }
-            }}
-            className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-          >
-            Connect Wallet
-          </Button>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Use the &quot;Connect Wallet&quot; button in the navigation bar to get started.
+          </p>
         </div>
       </div>
     )

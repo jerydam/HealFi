@@ -1,25 +1,42 @@
-import { ethers } from "ethers";
+import { CONTRACT_ADDRESSES } from "@/lib/contract";
 
-const validateContractAddress = (address) => {
-  if (!ethers.isAddress(address)) {
-    throw new Error(`Invalid contract address: ${address}`);
-  }
-  return address;
+// botchain network definitions. testnet is the default target; mainnet is here so
+// switching networks is a one-line change to ACTIVE_CHAIN_ID.
+export const BOTCHAIN_TESTNET = {
+  id: 968,
+  chainName: "botchain Testnet",
+  nativeCurrency: { name: "botchain", symbol: "botchain", decimals: 18 },
+  rpcUrls: ["https://rpc.bohr.life"],
+  blockExplorerName: "botchain testnet Explorer",
+  blockExplorerUrls: ["https://scan.bohr.life"],
+  testnet: true,
 };
 
-export const CONTRACTS = {
-  LISK_SEPOLIA: {
-    ContriboostFactory: validateContractAddress("0xB5d3e4080dF612d33E78A523c9F4d3362ee2EC48"),
-    GoalFundFactory: validateContractAddress("0x68fF2794A087da4B0A5247e9693eC4290D8eaE99"),
-    USDT: validateContractAddress("0x52Aee1645CA343515D12b6bd6FE24c026274e91D"),
-  }
+export const BOTCHAIN_MAINNET = {
+  id: 677,
+  chainName: "botchain",
+  nativeCurrency: { name: "botchain", symbol: "botchain", decimals: 18 },
+  rpcUrls: ["https://rpc.botchain.ai"],
+  blockExplorerName: "botchain Explorer",
+  blockExplorerUrls: ["https://scan.botchain.ai"],
+  testnet: false,
 };
 
 export const SUPPORTED_CHAINS = {
-  4202: {
-    chainName: "Lisk Sepolia Testnet",
-    nativeCurrency: { name: "Lisk Sepolia ETH", symbol: "ETH", decimals: 18 },
-    rpcUrls: ["https://rpc.sepolia-api.lisk.com"],
-    blockExplorerUrls: ["https://sepolia-blockscout.lisk.com"],
-  }
+  [BOTCHAIN_TESTNET.id]: BOTCHAIN_TESTNET,
+  [BOTCHAIN_MAINNET.id]: BOTCHAIN_MAINNET,
 };
+
+export const ACTIVE_CHAIN_ID = Number(
+  process.env.NEXT_PUBLIC_CHAIN_ID || BOTCHAIN_TESTNET.id
+);
+
+export const ACTIVE_CHAIN = SUPPORTED_CHAINS[ACTIVE_CHAIN_ID] || BOTCHAIN_TESTNET;
+
+export const CONTRACTS = CONTRACT_ADDRESSES;
+
+export const getExplorerTxUrl = (txHash) =>
+  `${ACTIVE_CHAIN.blockExplorerUrls[0]}/tx/${txHash}`;
+
+export const getExplorerAddressUrl = (address) =>
+  `${ACTIVE_CHAIN.blockExplorerUrls[0]}/address/${address}`;

@@ -10,6 +10,7 @@ import "../src/DonorPoolContract.sol";
 import "../src/MultisigRedemptionContract.sol";
 import "../src/FeeManagerContract.sol";
 import "../src/MetricsContract.sol";
+import "../src/MockUSDT.sol";
 
 contract DeployHealFi is Script {
     function run() external {
@@ -27,9 +28,17 @@ contract DeployHealFi is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Celo Alfajores cUSD address
-        address cUSD = 0x90193C961A926261B756D1E5bb255e67ff9498A1;
-        console.log("cUSD address:", cUSD);
+        // Botchain has no native cUSD. Reuse an existing token by setting
+        // USDT_ADDRESS before running; otherwise this deploys MockUSDT so the
+        // script still runs end-to-end on a fresh chain.
+        address cUSD = vm.envOr("USDT_ADDRESS", address(0));
+        if (cUSD == address(0)) {
+            MockUSDT mockUsdt = new MockUSDT();
+            cUSD = address(mockUsdt);
+            console.log("MockUSDT deployed at:", cUSD);
+        } else {
+            console.log("Using existing token at:", cUSD);
+        }
 
         // Deploy contracts
         FeeManagerContract feeManager;
@@ -184,5 +193,17 @@ contract DeployHealFi is Script {
         }
 
         vm.stopBroadcast();
+
+        console.log("---------------------------------------------");
+        console.log("Deployment summary");
+        console.log("---------------------------------------------");
+        console.log("Token (USDT-equivalent):   ", cUSD);
+        console.log("FeeManagerContract:        ", address(feeManager));
+        console.log("HSTContract:                ", address(hst));
+        console.log("UserSavingsContract:        ", address(userSavings));
+        console.log("LoanContract:               ", address(loan));
+        console.log("MultisigRedemptionContract: ", address(multisig));
+        console.log("DonorPoolContract:          ", address(donorPool));
+        console.log("MetricsContract:            ", address(metrics));
     }
 }

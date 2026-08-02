@@ -42,10 +42,14 @@ contract LoanContract is Ownable, ReentrancyGuard, Pausable {
 
     mapping(address => Loan) public loans;
     mapping(bytes32 => TimeLock) public timeLocks;
+    /// @notice Family loans stay here until the family's trustee signer co-signs.
+    mapping(address => bool) public loanAwaitingCoSign;
     uint256 public totalLoansDisbursed;
     uint256 public totalLoansRepaid;
 
     event LoanApplied(address indexed user, uint256 amount);
+    event FamilyLoanCoSignPending(address indexed borrower, uint256 indexed familyId, address indexed trusteeSigner, uint256 amount);
+    event FamilyLoanCoSigned(address indexed borrower, uint256 indexed familyId, address indexed trusteeSigner, uint256 amount);
     event GuarantorStaked(address indexed user, address indexed guarantor, uint256 lockedAmount);
     event LoanDisbursed(address indexed user, uint256 amount);
     event LoanRepaid(address indexed user, uint256 amount);

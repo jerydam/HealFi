@@ -241,7 +241,7 @@ export default function Navbar() {
                   onClick={toggleMenu}
                   className="block text-sm text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
                 >
-                  Identity Verification
+                  Identity Verification (Coming Soon)
                 </Link>
                 <Link
                   href="#"

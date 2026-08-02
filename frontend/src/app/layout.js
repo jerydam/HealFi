@@ -4,7 +4,7 @@ import ClientLayout from "@/components/ClientLayout"; // Import ClientLayout
 export const metadata = {
   title: "HealFi - Healthcare Savings & Microloans",
   description: "Save for healthcare, access microloans, and connect with trusted healthcare providers on the blockchain.",
-  keywords: "healthcare, savings, microloans, blockchain, DeFi, Self Protocol, identity verification",
+  keywords: "healthcare, savings, microloans, blockchain, DeFi, Celo, cUSD, stablecoin",
   authors: [{ name: "HealFi Team" }],
   creator: "HealFi",
   publisher: "HealFi",

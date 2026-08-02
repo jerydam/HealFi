@@ -5,96 +5,76 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Heart, Shield, Wallet, CreditCard, Users, ChevronRight, TrendingUp, ArrowRight, CheckCircle } from "lucide-react";
-import { 
-  useActiveAccount, 
-  useReadContract,
-  useActiveWallet
-} from "thirdweb/react";
-import { getMetricsContract, getSavingsContract } from "@/lib/web3";
+import { useWallet } from "@/lib/wallet-context";
+import { getPlatformMetrics, getSavingsInfo } from "@/lib/web3";
+
+const EMPTY_METRICS = {
+  totalSavings: "0",
+  totalLoansDisbursed: "0",
+  totalUsers: 0,
+  totalHSTRedeemed: "0",
+  totalFundsMatched: "0"
+};
 
 export default function Home() {
   const router = useRouter();
-  const account = useActiveAccount();
-  const wallet = useActiveWallet();
+  const { address, isConnected } = useWallet();
   const [isNavigating, setIsNavigating] = useState(false);
+  const [metricsData, setMetricsData] = useState(EMPTY_METRICS);
+  const [savingsInfo, setSavingsInfo] = useState(null);
+  const [savingsLoading, setSavingsLoading] = useState(false);
 
-  // Get platform metrics using ThirdWeb hooks
-  const { 
-    data: metricsData, 
-    isLoading: metricsLoading 
-  } = useReadContract({
-    contract: getMetricsContract(),
-    method: "getPlatformMetrics",
-    params: [],
-  });
+  // Platform metrics are public data
+  useEffect(() => {
+    getPlatformMetrics().then(setMetricsData).catch(console.error);
+  }, []);
 
   // Get user savings info if wallet is connected
-  const { 
-    data: savingsInfo, 
-    isLoading: savingsLoading 
-  } = useReadContract({
-    contract: getSavingsContract(),
-    method: "getSavingsInfo",
-    params: [account?.address || ""],
-    queryOptions: {
-      enabled: !!account?.address,
-    },
-  });
+  useEffect(() => {
+    let cancelled = false;
 
-  // Format metrics data
-  const formatMetrics = (data) => {
-    if (!data) return {
-      totalSavings: "0",
-      totalLoansDisbursed: "0",
-      totalUsers: 0,
-      totalHSTRedeemed: "0",
-      totalFundsMatched: "0"
-    };
+    if (!address) {
+      setSavingsInfo(null);
+      return;
+    }
 
-    return {
-      totalSavings: (Number(data.totalSavings) / 1e6).toFixed(0),
-      totalLoansDisbursed: (Number(data.totalLoansDisbursed) / 1e6).toFixed(0),
-      totalUsers: Number(data.totalUsers),
-      totalHSTRedeemed: (Number(data._totalHSTRedeemed) / 1e18).toFixed(0),
-      totalFundsMatched: (Number(data.totalFundsMatched) / 1e6).toFixed(0)
+    setSavingsLoading(true);
+    getSavingsInfo(address)
+      .then((info) => !cancelled && setSavingsInfo(info))
+      .catch(console.error)
+      .finally(() => !cancelled && setSavingsLoading(false));
+
+    return () => {
+      cancelled = true;
     };
+  }, [address]);
+
+  const metrics = {
+    totalSavings: Number(metricsData.totalSavings).toFixed(0),
+    totalLoansDisbursed: Number(metricsData.totalLoansDisbursed).toFixed(0),
+    totalUsers: metricsData.totalUsers,
+    totalHSTRedeemed: Number(metricsData.totalHSTRedeemed).toFixed(0),
+    totalFundsMatched: Number(metricsData.totalFundsMatched).toFixed(0)
   };
 
-  const metrics = formatMetrics(metricsData);
+  const isRegistered = !!savingsInfo && (savingsInfo.accountType > 0 || parseFloat(savingsInfo.balance) > 0);
 
-  const handleGetStarted = async () => {
-    if (!account || !wallet) {
+  const handleGetStarted = () => {
+    if (!isConnected) {
       // No wallet connected - user needs to connect via WalletConnectButton
-      alert("Please connect your wallet using the &apos;Connect Wallet&apos; button in the navigation bar.");
+      alert("Please connect your wallet using the 'Connect Wallet' button in the navigation bar.");
       return;
     }
 
     setIsNavigating(true);
-    try {
-      // Check if user is already registered
-      if (savingsInfo && (savingsInfo.accountType > 0 || savingsInfo.balance > 0)) {
-        // User is registered, go to dashboard
-        router.push("/dashboard");
-      } else {
-        // User is not registered, go to registration
-        router.push("/register");
-      }
-    } catch (error) {
-      console.error("Error checking user status:", error);
-      // Default to registration page if there's an error
-      router.push("/register");
-    } finally {
-      setIsNavigating(false);
-    }
+    router.push(isRegistered ? "/dashboard" : "/register");
   };
 
   const getButtonText = () => {
     if (isNavigating) return "Loading...";
-    if (!account) return "Connect Wallet to Start";
+    if (!isConnected) return "Connect Wallet to Start";
     if (savingsLoading) return "Checking Status...";
-    if (savingsInfo && (savingsInfo.accountType > 0 || savingsInfo.balance > 0)) {
-      return "Go to Dashboard";
-    }
+    if (isRegistered) return "Go to Dashboard";
     return "Get Started";
   };
 
@@ -133,7 +113,7 @@ export default function Home() {
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Loading...
                   </>
-                ) : account ? (
+                ) : isConnected ? (
                   <>
                     {getButtonText()}
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -157,11 +137,11 @@ export default function Home() {
               </Button>
             </div>
 
-            {account && (
+            {isConnected && (
               <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                 <p className="text-sm text-green-700 dark:text-green-300 flex items-center">
                   <CheckCircle className="mr-2 h-4 w-4" />
-                  Wallet connected: {account.address.slice(0, 6)}...{account.address.slice(-4)}
+                  Wallet connected: {address.slice(0, 6)}...{address.slice(-4)}
                 </p>
               </div>
             )}
@@ -190,7 +170,7 @@ export default function Home() {
                 <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold dark:text-white">
-                ${metricsLoading ? "..." : Number.parseFloat(metrics.totalSavings).toLocaleString()}
+                ${Number.parseFloat(metrics.totalSavings).toLocaleString()}
               </h3>
               <p className="text-green-700 dark:text-green-300 font-medium">Total Savings</p>
               <p className="text-sm text-green-600 dark:text-green-400 mt-1">
@@ -206,7 +186,7 @@ export default function Home() {
                 <TrendingUp className="h-5 w-5 text-orange-600 dark:text-orange-400" />
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold dark:text-white">
-                ${metricsLoading ? "..." : Number.parseFloat(metrics.totalLoansDisbursed).toLocaleString()}
+                ${Number.parseFloat(metrics.totalLoansDisbursed).toLocaleString()}
               </h3>
               <p className="text-orange-700 dark:text-orange-300 font-medium">Loans Provided</p>
               <p className="text-sm text-orange-600 dark:text-orange-400 mt-1">
@@ -222,7 +202,7 @@ export default function Home() {
                 <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold dark:text-white">
-                {metricsLoading ? "..." : metrics.totalUsers.toLocaleString()}
+                {metrics.totalUsers.toLocaleString()}
               </h3>
               <p className="text-blue-700 dark:text-blue-300 font-medium">Active Users</p>
               <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
@@ -238,7 +218,7 @@ export default function Home() {
                 <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold dark:text-white">
-                {metricsLoading ? "..." : Number.parseFloat(metrics.totalHSTRedeemed).toLocaleString()}
+                {Number.parseFloat(metrics.totalHSTRedeemed).toLocaleString()}
               </h3>
               <p className="text-purple-700 dark:text-purple-300 font-medium">HST Redeemed</p>
               <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">

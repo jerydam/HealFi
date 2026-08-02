@@ -1,151 +1,57 @@
-import { createThirdwebClient, getContract, readContract, prepareContractCall, sendTransaction } from "thirdweb";
-import { defineChain } from "thirdweb/chains";
 import { ethers } from "ethers";
-import { 
-  CONTRACT_ADDRESSES, 
-  DonorContractAbi, 
-  HSTcontractAbi, 
-  MultisigRedemptionContractAbi, 
-  UserSavingsContractAbi, 
-  FeeManagerContractAbi, 
-  LoanContractAbi, 
-  MetricsContractAbi, 
-  ERC20Abi 
+import {
+  CONTRACT_ADDRESSES,
+  DonorContractAbi,
+  HSTcontractAbi,
+  MultisigRedemptionContractAbi,
+  UserSavingsContractAbi,
+  FeeManagerContractAbi,
+  LoanContractAbi,
+  MetricsContractAbi,
+  ERC20Abi
 } from "./contract";
+import { ACTIVE_CHAIN, getExplorerTxUrl, getExplorerAddressUrl } from "@/utils/config";
 
-// Create ThirdWeb client
-export const client = createThirdwebClient({
-  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID,
-});
+export { getExplorerTxUrl, getExplorerAddressUrl };
 
-// Define Celo Alfajores chain for ThirdWeb
-export const celoAlfajores = defineChain({
-  id: 44787,
-  name: "Celo Alfajores Testnet",
-  nativeCurrency: {
-    name: "Celo",
-    symbol: "CELO",
-    decimals: 18,
-  },
-  rpc: "https://alfajores-forno.celo-testnet.org",
-  blockExplorers: [
-    {
-      name: "Celo Alfajores Explorer",
-      url: "https://celo-alfajores.blockscout.com",
-    },
-  ],
-});
+const USDT_DECIMALS = 6;
+const HST_DECIMALS = 18;
 
-// Legacy config for compatibility
-export const CELO_ALFAJORES_CONFIG = {
-  chainId: 44787,
-  chainName: "Celo Alfajores Testnet",
-  nativeCurrency: {
-    name: "Celo",
-    symbol: "CELO",
-    decimals: 18
-  },
-  rpcUrls: [
-    "https://alfajores-forno.celo-testnet.org",
-    "https://celo-alfajores.infura.io/v3/YOUR_INFURA_KEY"
-  ],
-  blockExplorerUrls: ["https://celo-alfajores.blockscout.com/"]
-};
-
-// Contract getters using ThirdWeb
-export const getDonorContract = () => {
-  return getContract({
-    client,
-    chain: celoAlfajores,
-    address: CONTRACT_ADDRESSES.donorContract,
-    abi: DonorContractAbi,
-  });
-};
-
-export const getHSTContract = () => {
-  return getContract({
-    client,
-    chain: celoAlfajores,
-    address: CONTRACT_ADDRESSES.hstContract,
-    abi: HSTcontractAbi,
-  });
-};
-
-export const getMultisigRedemptionContract = () => {
-  return getContract({
-    client,
-    chain: celoAlfajores,
-    address: CONTRACT_ADDRESSES.multisig,
-    abi: MultisigRedemptionContractAbi,
-  });
-};
-
-export const getSavingsContract = () => {
-  return getContract({
-    client,
-    chain: celoAlfajores,
-    address: CONTRACT_ADDRESSES.saving,
-    abi: UserSavingsContractAbi,
-  });
-};
-
-export const getFeeManagerContract = () => {
-  return getContract({
-    client,
-    chain: celoAlfajores,
-    address: CONTRACT_ADDRESSES.feeManagement,
-    abi: FeeManagerContractAbi,
-  });
-};
-
-export const getLoanContract = () => {
-  return getContract({
-    client,
-    chain: celoAlfajores,
-    address: CONTRACT_ADDRESSES.loan,
-    abi: LoanContractAbi,
-  });
-};
-
-export const getMetricsContract = () => {
-  return getContract({
-    client,
-    chain: celoAlfajores,
-    address: CONTRACT_ADDRESSES.metrics,
-    abi: MetricsContractAbi,
-  });
-};
-
-export const getUSDTContract = () => {
-  return getContract({
-    client,
-    chain: celoAlfajores,
-    address: CONTRACT_ADDRESSES.usdt,
-    abi: ERC20Abi,
-  });
-};
-
-// Legacy provider functions (deprecated with ThirdWeb)
+// Shared read-only provider for the active Celo network. Reads never need a wallet.
+let readProvider;
 export const getProvider = () => {
-  console.warn("getProvider is deprecated with ThirdWeb. Use account from useActiveAccount hook instead.");
-  if (typeof window !== "undefined" && window.ethereum) {
-    return new ethers.BrowserProvider(window.ethereum);
+  if (!readProvider) {
+    readProvider = new ethers.JsonRpcProvider(ACTIVE_CHAIN.rpcUrls[0], {
+      chainId: ACTIVE_CHAIN.id,
+      name: ACTIVE_CHAIN.chainName,
+    });
   }
-  return new ethers.JsonRpcProvider(CELO_ALFAJORES_CONFIG.rpcUrls[0]);
+  return readProvider;
 };
 
-export const connectWallet = async () => {
-  console.warn("connectWallet is deprecated with ThirdWeb. Use ConnectButton component instead.");
-  return { 
-    success: false, 
-    error: "Use ThirdWeb ConnectButton component instead" 
-  };
-};
+// Contract getters. Pass a signer for writes; omit it for reads.
+const contractFactory = (address, abi) => (signerOrProvider) =>
+  new ethers.Contract(address, abi, signerOrProvider || getProvider());
+
+export const getDonorContract = contractFactory(CONTRACT_ADDRESSES.donorContract, DonorContractAbi);
+export const getHSTContract = contractFactory(CONTRACT_ADDRESSES.hstContract, HSTcontractAbi);
+export const getMultisigRedemptionContract = contractFactory(CONTRACT_ADDRESSES.multisig, MultisigRedemptionContractAbi);
+export const getSavingsContract = contractFactory(CONTRACT_ADDRESSES.saving, UserSavingsContractAbi);
+export const getFeeManagerContract = contractFactory(CONTRACT_ADDRESSES.feeManagement, FeeManagerContractAbi);
+export const getLoanContract = contractFactory(CONTRACT_ADDRESSES.loan, LoanContractAbi);
+export const getMetricsContract = contractFactory(CONTRACT_ADDRESSES.metrics, MetricsContractAbi);
+export const getUSDTContract = contractFactory(CONTRACT_ADDRESSES.usdt, ERC20Abi);
 
 // Enhanced error handling for contract calls
 const getContractError = (error) => {
+  if (error.code === "ACTION_REJECTED" || error.code === 4001) {
+    return "Transaction rejected in wallet";
+  }
   if (error.reason) {
     return error.reason;
+  }
+  if (error.shortMessage) {
+    return error.shortMessage;
   }
   if (error.data && error.data.message) {
     return error.data.message;
@@ -160,39 +66,43 @@ const getContractError = (error) => {
   return "Transaction failed";
 };
 
-// Enhanced transaction execution with better error handling
-const executeTransaction = async (account, contractCall) => {
-  try {
-    const transactionResult = await sendTransaction({
-      transaction: contractCall,
-      account,
-    });
-    
-    console.log(`Transaction sent: ${transactionResult.transactionHash}`);
-    return { 
-      success: true, 
-      txHash: transactionResult.transactionHash,
-      receipt: transactionResult 
-    };
-  } catch (error) {
-    console.error("Transaction failed:", error);
-    const errorMessage = getContractError(error);
-    throw new Error(errorMessage);
+const requireSigner = (signer) => {
+  if (!signer) {
+    throw new Error("No wallet connected");
   }
+  return signer;
 };
 
-// Add a helper function to check user registration status
+// Send a transaction and wait for it to be mined
+const executeTransaction = async (txPromise) => {
+  const tx = await txPromise;
+  console.log(`Transaction sent: ${tx.hash}`);
+  const receipt = await tx.wait();
+  return {
+    success: true,
+    txHash: tx.hash,
+    receipt,
+  };
+};
+
+// Approve `spender` for at least `amount` of USDT, skipping the tx if allowance suffices
+const ensureUSDTAllowance = async (signer, spender, amount) => {
+  const owner = await signer.getAddress();
+  const usdt = getUSDTContract(signer);
+  const currentAllowance = await usdt.allowance(owner, spender);
+
+  if (currentAllowance >= amount) return;
+
+  console.log("Approving USDT transfer...");
+  await executeTransaction(usdt.approve(spender, amount));
+};
+
+// Check user registration status
 export const checkUserRegistration = async (address) => {
   try {
-    const contract = getSavingsContract();
-    const savingsInfo = await readContract({
-      contract,
-      method: "getSavingsInfo",
-      params: [address],
-    });
-    
+    const savingsInfo = await getSavingsContract().getSavingsInfo(address);
     return {
-      isRegistered: savingsInfo.accountType > 0 || savingsInfo.balance > 0,
+      isRegistered: Number(savingsInfo.accountType) > 0 || savingsInfo.balance > 0n,
       accountType: Number(savingsInfo.accountType),
       planType: Number(savingsInfo.planType)
     };
@@ -202,128 +112,165 @@ export const checkUserRegistration = async (address) => {
   }
 };
 
-// FIXED: Enhanced deposit function with comprehensive validation
-export const deposit = async (amount, account) => {
+export const deposit = async (amount, target, signer) => {
   try {
     if (!amount || parseFloat(amount) <= 0) {
       throw new Error("Invalid deposit amount");
     }
-    if (!account) {
-      throw new Error("No account connected");
+    if (target !== 1 && target !== 2) {
+      throw new Error("Invalid account target — must be Individual (1) or Family (2).");
     }
+    requireSigner(signer);
 
-    const amountInWei = ethers.parseUnits(amount.toString(), 6);
-    
-    // 1. Check if user is registered
-    console.log("Checking if user is registered...");
-    const registrationStatus = await checkUserRegistration(account.address);
-    if (!registrationStatus.isRegistered) {
-      throw new Error("User must be registered before making a deposit. Please register first.");
-    }
+    const amountInWei = ethers.parseUnits(amount.toString(), USDT_DECIMALS);
+    const userAddress = await signer.getAddress();
 
-    // 2. Check user's USDT balance
     console.log("Checking USDT balance...");
-    const usdtContract = getUSDTContract();
-    const balance = await readContract({
-      contract: usdtContract,
-      method: "balanceOf",
-      params: [account.address],
-    });
-    
+    const balance = await getUSDTContract().balanceOf(userAddress);
     if (balance < amountInWei) {
-      throw new Error(`Insufficient USDT balance. Available: ${ethers.formatUnits(balance, 6)} USDT, Required: ${amount} USDT`);
+      throw new Error(
+        `Insufficient USDT balance. Available: ${ethers.formatUnits(balance, USDT_DECIMALS)} USDT, Required: ${amount} USDT`
+      );
     }
 
-    // 3. Check current allowance
-    console.log("Checking current allowance...");
-    const currentAllowance = await readContract({
-      contract: usdtContract,
-      method: "allowance",
-      params: [account.address, CONTRACT_ADDRESSES.saving],
-    });
-    
-    if (currentAllowance < amountInWei) {
-      // 4. Approve USDT spending (approve max amount to avoid future approvals)
-      console.log("Approving USDT transfer...");
-      const maxAmount = ethers.parseUnits("1000000", 6); // Approve 1M USDT max
-      const approveCall = prepareContractCall({
-        contract: usdtContract,
-        method: "approve",
-        params: [CONTRACT_ADDRESSES.saving, maxAmount],
-      });
-      
-      const approvalResult = await executeTransaction(account, approveCall);
-      if (!approvalResult.success) {
-        throw new Error("USDT approval failed");
-      }
-      
-      // Wait a bit for the approval to be confirmed
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
+    await ensureUSDTAllowance(signer, CONTRACT_ADDRESSES.saving, amountInWei);
 
-    // 5. Check if contract is paused (if there's such functionality)
-    console.log("Checking contract state...");
-    
-    // 6. Make deposit
     console.log("Making deposit...");
-    const savingsContract = getSavingsContract();
-    const depositCall = prepareContractCall({
-      contract: savingsContract,
-      method: "deposit",
-      params: [amountInWei],
-    });
-    
-    return await executeTransaction(account, depositCall);
+    return await executeTransaction(getSavingsContract(signer).deposit(amountInWei, target));
   } catch (error) {
     console.error("Error depositing:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-// Enhanced withdrawal function with better validation
-export const withdraw = async (amount, account) => {
+// web3.js — add after approveFamilyWithdrawal
+export const getFamilyWithdrawalRequests = async (familyId) => {
+  try {
+    const ids = await getSavingsContract().getFamilyWithdrawalRequests(familyId);
+    return ids.map(Number);
+  } catch (error) {
+    console.error("Error getting withdrawal requests:", error);
+    return [];
+  }
+};
+
+export const getWithdrawalRequest = async (requestId) => {
+  try {
+    const r = await getSavingsContract().withdrawalRequests(requestId);
+    return {
+      familyId: Number(r.familyId),
+      amount: ethers.formatUnits(r.amount, USDT_DECIMALS),
+      to: r.to,
+      proposer: r.proposer,
+      createdAt: Number(r.createdAt),
+      executed: r.executed,
+      cancelled: r.cancelled,
+    };
+  } catch (error) {
+    console.error("Error getting withdrawal request:", error);
+    return null;
+  }
+};
+// Which account types exist for this user, and which is currently "active"
+// (relevant for plain withdraw(), which has no target param)
+export const getAccountStatus = async (address) => {
+  try {
+    const status = await getSavingsContract().getAccountStatus(address);
+    return {
+      hasIndividualAccount: status.hasIndividualAccount,
+      hasFamilyAccount: status.hasFamilyAccount,
+      familyId: Number(status.familyId),
+      activeAccount: Number(status.activeAccount), // 0=None, 1=Individual, 2=Family
+    };
+  } catch (error) {
+    console.error("Error getting account status:", error);
+    return null;
+  }
+};
+
+export const getIndividualAccount = async (address) => {
+  try {
+    const info = await getSavingsContract().getIndividualAccount(address);
+    return {
+      registered: info.registered,
+      balance: ethers.formatUnits(info.balance, USDT_DECIMALS),
+      lockedBalance: ethers.formatUnits(info.lockedBalance, USDT_DECIMALS),
+      planType: Number(info.planType),
+      streak: Number(info.streak),
+      hstEarned: ethers.formatUnits(info.hstEarned, HST_DECIMALS),
+      lastDepositTime: new Date(Number(info.lastDepositTime) * 1000),
+      detailsHash: info.detailsHash,
+      isVerified: info.isVerified,
+      referrer: info.referrer,
+    };
+  } catch (error) {
+    console.error("Error getting individual account:", error);
+    return null;
+  }
+};
+
+// Note: distinct from getFamilyInfo(familyId) — this looks up by user address instead
+export const getUserFamilyAccount = async (address) => {
+  try {
+    const info = await getSavingsContract().getFamilyAccount(address);
+    return {
+      isMember: info.isMember,
+      familyId: Number(info.familyId),
+      familyName: info.familyName,
+      treasuryBalance: ethers.formatUnits(info.treasuryBalance, USDT_DECIMALS),
+      lockedTreasuryBalance: ethers.formatUnits(info.lockedTreasuryBalance, USDT_DECIMALS),
+      planType: Number(info.planType),
+      streak: Number(info.streak),
+      hstEarned: ethers.formatUnits(info.hstEarned, HST_DECIMALS),
+      lastDepositTime: new Date(Number(info.lastDepositTime) * 1000),
+    };
+  } catch (error) {
+    console.error("Error getting user's family account:", error);
+    return null;
+  }
+};
+
+export const switchActiveAccount = async (target, signer) => {
+  try {
+    requireSigner(signer);
+    return await executeTransaction(getSavingsContract(signer).switchActiveAccount(target));
+  } catch (error) {
+    console.error("Error switching active account:", error);
+    return { success: false, error: getContractError(error) };
+  }
+};
+
+export const withdraw = async (amount, signer) => {
   try {
     if (!amount || parseFloat(amount) <= 0) {
       throw new Error("Invalid withdrawal amount");
     }
-    if (!account) {
-      throw new Error("No account connected");
-    }
+    requireSigner(signer);
 
-    const amountInWei = ethers.parseUnits(amount.toString(), 6);
-    
-    // Check user's savings info and balance
+    const amountInWei = ethers.parseUnits(amount.toString(), USDT_DECIMALS);
+    const userAddress = await signer.getAddress();
+
     console.log("Checking savings balance...");
-    const savingsInfo = await getSavingsInfo(account.address);
+    const savingsInfo = await getSavingsInfo(userAddress);
     if (!savingsInfo) {
       throw new Error("Unable to fetch savings information. Make sure you are registered.");
     }
-    
     if (parseFloat(savingsInfo.balance) < parseFloat(amount)) {
-      throw new Error(`Insufficient savings balance. Available: ${savingsInfo.balance} USDT, Requested: ${amount} USDT`);
+      throw new Error(
+        `Insufficient savings balance. Available: ${savingsInfo.balance} USDT, Requested: ${amount} USDT`
+      );
     }
 
     console.log("Making withdrawal...");
-    const savingsContract = getSavingsContract();
-    const withdrawCall = prepareContractCall({
-      contract: savingsContract,
-      method: "withdraw",
-      params: [amountInWei],
-    });
-    
-    return await executeTransaction(account, withdrawCall);
+    return await executeTransaction(getSavingsContract(signer).withdraw(amountInWei));
   } catch (error) {
     console.error("Error withdrawing:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-// Enhanced register individual with proper validation and gas optimization
-export const registerIndividual = async (planType, detailsHash, referrer = ethers.ZeroAddress, account) => {
+export const registerIndividual = async (planType, detailsHash, referrer = ethers.ZeroAddress, signer) => {
   try {
-    // Validate inputs
     if (!Number.isInteger(planType) || planType < 0 || planType > 2) {
       throw new Error("Invalid plan type. Must be 0 (Daily), 1 (Weekly), or 2 (Monthly).");
     }
@@ -333,117 +280,267 @@ export const registerIndividual = async (planType, detailsHash, referrer = ether
     if (referrer && referrer !== ethers.ZeroAddress && !ethers.isAddress(referrer)) {
       throw new Error("Invalid referrer address.");
     }
-    if (!account) {
-      throw new Error("No account connected");
-    }
+    requireSigner(signer);
 
-    // Check if user is already registered
-    const registrationStatus = await checkUserRegistration(account.address);
+    const userAddress = await signer.getAddress();
+    const registrationStatus = await checkUserRegistration(userAddress);
     if (registrationStatus.isRegistered) {
       throw new Error("User is already registered");
     }
 
     console.log("Registering individual with:", { planType, detailsHash, referrer });
-    
-    const savingsContract = getSavingsContract();
-    const registerCall = prepareContractCall({
-      contract: savingsContract,
-      method: "registerIndividual",
-      params: [planType, detailsHash, referrer || ethers.ZeroAddress],
-    });
-    
-    return await executeTransaction(account, registerCall);
+    return await executeTransaction(
+      getSavingsContract(signer).registerIndividual(planType, detailsHash, referrer || ethers.ZeroAddress)
+    );
   } catch (error) {
     console.error("Error registering individual:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-// Enhanced register family function with proper validation and gas optimization
-export const registerFamily = async (familyMembers, planType, familyName, referrer = ethers.ZeroAddress, account) => {
+/**
+ * Register a family on-chain.
+ * @param {Array<{member: string, role: number}>} familyMembers  MemberInput array (role: 0-6)
+ * @param {number}  planType           0=Daily, 1=Weekly, 2=Monthly
+ * @param {string}  familyName
+ * @param {string}  familyDataHash     IPFS CID of the off-chain family record
+ * @param {string}  emergencySigner    Proposes withdrawals; must be a member
+ * @param {string}  trusteeSigner      Co-signs withdrawals; must be a member
+ * @param {string}  [referrer]
+ * @param {object}  signer
+ */
+export const registerFamily = async (
+  familyMembers,
+  planType,
+  familyName,
+  familyDataHash,
+  emergencySigner,
+  trusteeSigner,
+  referrer = ethers.ZeroAddress,
+  signer
+) => {
   try {
-    // Validate inputs
-    if (!Number.isInteger(planType) || planType < 0 || planType > 2) {
+    if (!Number.isInteger(planType) || planType < 0 || planType > 2)
       throw new Error("Invalid plan type. Must be 0 (Daily), 1 (Weekly), or 2 (Monthly).");
-    }
-    if (!familyName || typeof familyName !== "string" || !familyName.trim()) {
-      throw new Error("Family name is required and must be a non-empty string.");
-    }
-    if (!Array.isArray(familyMembers) || familyMembers.length < 2) {
+    if (!familyName?.trim())
+      throw new Error("Family name is required.");
+    if (!familyDataHash?.trim())
+      throw new Error("Family data hash (IPFS CID) is required.");
+    if (!Array.isArray(familyMembers) || familyMembers.length < 2)
       throw new Error("At least 2 family members are required.");
-    }
-    if (!account) {
-      throw new Error("No account connected");
-    }
-    
-    // Validate family members
+    if (!emergencySigner || !ethers.isAddress(emergencySigner))
+      throw new Error("Valid emergency signer address required.");
+    if (!trusteeSigner || !ethers.isAddress(trusteeSigner))
+      throw new Error("Valid trustee signer address required.");
+    if (emergencySigner.toLowerCase() === trusteeSigner.toLowerCase())
+      throw new Error("Emergency signer and trustee signer must be different addresses.");
+    requireSigner(signer);
+
     for (let i = 0; i < familyMembers.length; i++) {
-      const member = familyMembers[i];
-      if (!member.member || !ethers.isAddress(member.member)) {
+      const m = familyMembers[i];
+      if (!m.member || !ethers.isAddress(m.member))
         throw new Error(`Invalid address for family member ${i + 1}.`);
-      }
-      if (!member.detailsHash || typeof member.detailsHash !== "string") {
-        throw new Error(`Details hash is required for family member ${i + 1}.`);
-      }
-    }
-    
-    if (referrer && referrer !== ethers.ZeroAddress && !ethers.isAddress(referrer)) {
-      throw new Error("Invalid referrer address.");
+      if (typeof m.role !== "number" || m.role < 0 || m.role > 6)
+        throw new Error(`Invalid role for family member ${i + 1}.`);
     }
 
-    console.log("Registering family with:", { 
-      familyMembers, 
-      planType, 
-      familyName, 
-      referrer 
-    });
-    
-    const savingsContract = getSavingsContract();
-    const registerCall = prepareContractCall({
-      contract: savingsContract,
-      method: "registerFamily",
-      params: [familyMembers, planType, familyName, referrer || ethers.ZeroAddress],
-    });
-    
-    return await executeTransaction(account, registerCall);
+    if (referrer && referrer !== ethers.ZeroAddress && !ethers.isAddress(referrer))
+      throw new Error("Invalid referrer address.");
+
+    // Verify both signers are in the member list (contract enforces this too)
+    const memberAddrs = familyMembers.map((m) => m.member.toLowerCase());
+    if (!memberAddrs.includes(emergencySigner.toLowerCase()))
+      throw new Error("Emergency signer must be included in the members list.");
+    if (!memberAddrs.includes(trusteeSigner.toLowerCase()))
+      throw new Error("Trustee signer must be included in the members list.");
+
+    console.log("Registering family with:", { familyMembers, planType, familyName, familyDataHash, emergencySigner, trusteeSigner });
+
+    // Contract MemberInput: (address member, uint8 role)
+    const members = familyMembers.map((m) => [m.member, m.role]);
+
+    return await executeTransaction(
+      getSavingsContract(signer).registerFamily(
+        members,
+        planType,
+        familyName,
+        familyDataHash,
+        emergencySigner,
+        trusteeSigner,
+        referrer || ethers.ZeroAddress
+      )
+    );
   } catch (error) {
     console.error("Error registering family:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const removePartneredFacility = async (facility, account) => {
-  try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
+// ─── Family query helpers ──────────────────────────────────────────────────
 
-    const hstContract = getHSTContract();
-    const removeCall = prepareContractCall({
-      contract: hstContract,
-      method: "removePartneredFacility",
-      params: [facility],
-    });
-    
-    return await executeTransaction(account, removeCall);
+export const getFamilySigners = async (familyId) => {
+  try {
+    const result = await getSavingsContract().getFamilySigners(familyId);
+    return {
+      emergencySigner: result[0],
+      trusteeSigner: result[1],
+      familyDataHash: result[2],
+    };
+  } catch (error) {
+    console.error("Error getting family signers:", error);
+    return null;
+  }
+};
+
+export const getFamilyMembers = async (familyId) => {
+  try {
+    const result = await getSavingsContract().getFamilyMembers(familyId);
+    return {
+      addresses: result[0],
+      roles: result[1].map(Number),
+    };
+  } catch (error) {
+    console.error("Error getting family members:", error);
+    return null;
+  }
+};
+
+// ─── Family withdrawal flow ────────────────────────────────────────────────
+
+export const proposeFamilyWithdrawal = async (amount, to, signer) => {
+  try {
+    requireSigner(signer);
+    const amountInWei = ethers.parseUnits(amount.toString(), USDT_DECIMALS);
+    return await executeTransaction(
+      getSavingsContract(signer).proposeFamilyWithdrawal(amountInWei, to)
+    );
+  } catch (error) {
+    console.error("Error proposing family withdrawal:", error);
+    return { success: false, error: getContractError(error) };
+  }
+};
+
+export const approveFamilyWithdrawal = async (requestId, signer) => {
+  try {
+    requireSigner(signer);
+    return await executeTransaction(
+      getSavingsContract(signer).approveFamilyWithdrawal(requestId)
+    );
+  } catch (error) {
+    console.error("Error approving family withdrawal:", error);
+    return { success: false, error: getContractError(error) };
+  }
+};
+
+export const cancelFamilyWithdrawal = async (requestId, signer) => {
+  try {
+    requireSigner(signer);
+    return await executeTransaction(
+      getSavingsContract(signer).cancelFamilyWithdrawal(requestId)
+    );
+  } catch (error) {
+    console.error("Error cancelling family withdrawal:", error);
+    return { success: false, error: getContractError(error) };
+  }
+};
+
+// ─── Signer recovery flow ─────────────────────────────────────────────────
+
+/**
+ * Any family member can submit a recovery request for a compromised/lost signer.
+ * @param {number}  familyId
+ * @param {number}  signerRole  0 = Emergency, 1 = Trustee
+ * @param {string}  proposedSigner  Replacement address
+ * @param {string}  reasonHash  IPFS CID of supporting evidence
+ */
+export const requestSignerRecovery = async (familyId, signerRole, proposedSigner, reasonHash, signer) => {
+  try {
+    requireSigner(signer);
+    if (!ethers.isAddress(proposedSigner)) throw new Error("Invalid proposed signer address.");
+    return await executeTransaction(
+      getSavingsContract(signer).requestSignerRecovery(familyId, signerRole, proposedSigner, reasonHash || "")
+    );
+  } catch (error) {
+    console.error("Error requesting signer recovery:", error);
+    return { success: false, error: getContractError(error) };
+  }
+};
+
+export const getFamilyRecoveryRequests = async (familyId) => {
+  try {
+    const ids = await getSavingsContract().getFamilyRecoveryRequests(familyId);
+    return ids.map(Number);
+  } catch (error) {
+    console.error("Error getting recovery requests:", error);
+    return [];
+  }
+};
+
+export const getRecoveryRequest = async (requestId) => {
+  try {
+    const r = await getSavingsContract().recoveryRequests(requestId);
+    return {
+      familyId: Number(r.familyId),
+      role: Number(r.role),
+      proposedSigner: r.proposedSigner,
+      requester: r.requester,
+      reasonHash: r.reasonHash,
+      createdAt: Number(r.createdAt),
+      resolved: r.resolved,
+    };
+  } catch (error) {
+    console.error("Error getting recovery request:", error);
+    return null;
+  }
+};
+
+// ─── IPFS helpers (Pinata public gateway, no API key needed for reads) ────
+
+/**
+ * Upload JSON data to IPFS via the Pinata public pinning API.
+ * Requires NEXT_PUBLIC_PINATA_JWT in env.
+ */
+export const uploadToIPFS = async (data) => {
+  const jwt = process.env.NEXT_PUBLIC_PINATA_JWT;
+  if (!jwt) throw new Error("NEXT_PUBLIC_PINATA_JWT not set");
+
+  const pinName =
+    data?.type === "family"
+      ? `healfi-family-${data.familyName || "unnamed"}`
+      : `healfi-individual-${data.name || data.address || "unnamed"}`;
+
+  const res = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ pinataContent: data, pinataMetadata: { name: pinName } }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`IPFS upload failed: ${err}`);
+  }
+
+  const json = await res.json();
+  return json.IpfsHash;
+};
+
+export const removePartneredFacility = async (facility, signer) => {
+  try {
+    requireSigner(signer);
+    return await executeTransaction(getHSTContract(signer).removePartneredFacility(facility));
   } catch (error) {
     console.error("Error removing partnered facility:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
 export const getHSTBalance = async (address) => {
   try {
-    const contract = getHSTContract();
-    const balance = await readContract({
-      contract,
-      method: "balanceOf",
-      params: [address],
-    });
-    return ethers.formatUnits(balance, 18);
+    const balance = await getHSTContract().balanceOf(address);
+    return ethers.formatUnits(balance, HST_DECIMALS);
   } catch (error) {
     console.error("Error getting HST balance:", error);
     return "0";
@@ -452,13 +549,7 @@ export const getHSTBalance = async (address) => {
 
 export const getFacilityInfo = async (facility) => {
   try {
-    const contract = getHSTContract();
-    const info = await readContract({
-      contract,
-      method: "facilityInfo",
-      params: [facility],
-    });
-    
+    const info = await getHSTContract().facilityInfo(facility);
     return {
       name: info.name,
       licenseNumber: info.licenseNumber,
@@ -472,12 +563,7 @@ export const getFacilityInfo = async (facility) => {
 
 export const isPartneredFacility = async (facility) => {
   try {
-    const contract = getHSTContract();
-    return await readContract({
-      contract,
-      method: "partneredFacilities",
-      params: [facility],
-    });
+    return await getHSTContract().partneredFacilities(facility);
   } catch (error) {
     console.error("Error checking partnered facility:", error);
     return false;
@@ -485,63 +571,36 @@ export const isPartneredFacility = async (facility) => {
 };
 
 // Multisig Redemption Contract Functions
-export const initiateRedemption = async (user, facility, hstAmount, outcomeHash, account) => {
+export const initiateRedemption = async (user, facility, hstAmount, outcomeHash, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const hstAmountInWei = ethers.parseUnits(hstAmount.toString(), 18);
-    const multisigContract = getMultisigRedemptionContract();
-    
-    const initiateCall = prepareContractCall({
-      contract: multisigContract,
-      method: "initiateRedemption",
-      params: [user, facility, hstAmountInWei, outcomeHash],
-    });
-    
-    return await executeTransaction(account, initiateCall);
+    requireSigner(signer);
+    const hstAmountInWei = ethers.parseUnits(hstAmount.toString(), HST_DECIMALS);
+    return await executeTransaction(
+      getMultisigRedemptionContract(signer).initiateRedemption(user, facility, hstAmountInWei, outcomeHash)
+    );
   } catch (error) {
     console.error("Error initiating redemption:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const signRedemption = async (redemptionId, account) => {
+export const signRedemption = async (redemptionId, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const multisigContract = getMultisigRedemptionContract();
-    const signCall = prepareContractCall({
-      contract: multisigContract,
-      method: "signRedemption",
-      params: [redemptionId],
-    });
-    
-    return await executeTransaction(account, signCall);
+    requireSigner(signer);
+    return await executeTransaction(getMultisigRedemptionContract(signer).signRedemption(redemptionId));
   } catch (error) {
     console.error("Error signing redemption:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
 export const getRedemptionInfo = async (redemptionId) => {
   try {
-    const contract = getMultisigRedemptionContract();
-    const redemption = await readContract({
-      contract,
-      method: "redemptions",
-      params: [redemptionId],
-    });
-    
+    const redemption = await getMultisigRedemptionContract().redemptions(redemptionId);
     return {
       user: redemption.user,
       facility: redemption.facility,
-      hstAmount: ethers.formatUnits(redemption.hstAmount, 18),
+      hstAmount: ethers.formatUnits(redemption.hstAmount, HST_DECIMALS),
       facilitySigned: redemption.facilitySigned,
       healfiSigned: redemption.healfiSigned,
       executed: redemption.executed,
@@ -554,98 +613,47 @@ export const getRedemptionInfo = async (redemptionId) => {
 };
 
 // Fee Manager Contract Functions
-export const collectFee = async (amount, account) => {
+export const collectFee = async (amount, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
+    requireSigner(signer);
+    const amountInWei = ethers.parseUnits(amount.toString(), USDT_DECIMALS);
 
-    const amountInWei = ethers.parseUnits(amount.toString(), 6);
-    
-    // Approve USDT first
-    const usdtContract = getUSDTContract();
-    const approveCall = prepareContractCall({
-      contract: usdtContract,
-      method: "approve",
-      params: [CONTRACT_ADDRESSES.feeManagement, amountInWei],
-    });
-    
-    const approvalResult = await executeTransaction(account, approveCall);
-    if (!approvalResult.success) {
-      throw new Error("USDT approval failed");
-    }
-    
-    // Wait for approval
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await ensureUSDTAllowance(signer, CONTRACT_ADDRESSES.feeManagement, amountInWei);
 
-    const feeManagerContract = getFeeManagerContract();
-    const collectCall = prepareContractCall({
-      contract: feeManagerContract,
-      method: "collectFee",
-      params: [amountInWei],
-    });
-    
-    return await executeTransaction(account, collectCall);
+    return await executeTransaction(getFeeManagerContract(signer).collectFee(amountInWei));
   } catch (error) {
     console.error("Error collecting fee:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const distributeRedemptionFee = async (facility, totalFee, account) => {
+export const distributeRedemptionFee = async (facility, totalFee, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const totalFeeInWei = ethers.parseUnits(totalFee.toString(), 6);
-    const feeManagerContract = getFeeManagerContract();
-    
-    const distributeCall = prepareContractCall({
-      contract: feeManagerContract,
-      method: "distributeRedemptionFee",
-      params: [facility, totalFeeInWei],
-    });
-    
-    return await executeTransaction(account, distributeCall);
+    requireSigner(signer);
+    const totalFeeInWei = ethers.parseUnits(totalFee.toString(), USDT_DECIMALS);
+    return await executeTransaction(
+      getFeeManagerContract(signer).distributeRedemptionFee(facility, totalFeeInWei)
+    );
   } catch (error) {
     console.error("Error distributing redemption fee:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const withdrawFacilityBalance = async (account) => {
+export const withdrawFacilityBalance = async (signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const feeManagerContract = getFeeManagerContract();
-    const withdrawCall = prepareContractCall({
-      contract: feeManagerContract,
-      method: "withdrawFacilityBalance",
-      params: [],
-    });
-    
-    return await executeTransaction(account, withdrawCall);
+    requireSigner(signer);
+    return await executeTransaction(getFeeManagerContract(signer).withdrawFacilityBalance());
   } catch (error) {
     console.error("Error withdrawing facility balance:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
 export const getFacilityBalance = async (facility) => {
   try {
-    const contract = getFeeManagerContract();
-    const balance = await readContract({
-      contract,
-      method: "facilityBalances",
-      params: [facility],
-    });
-    return ethers.formatUnits(balance, 6);
+    const balance = await getFeeManagerContract().facilityBalances(facility);
+    return ethers.formatUnits(balance, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting facility balance:", error);
     return "0";
@@ -654,13 +662,8 @@ export const getFacilityBalance = async (facility) => {
 
 export const getHealfiBalance = async () => {
   try {
-    const contract = getFeeManagerContract();
-    const balance = await readContract({
-      contract,
-      method: "healfiBalance",
-      params: [],
-    });
-    return ethers.formatUnits(balance, 6);
+    const balance = await getFeeManagerContract().healfiBalance();
+    return ethers.formatUnits(balance, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting healfi balance:", error);
     return "0";
@@ -669,13 +672,8 @@ export const getHealfiBalance = async () => {
 
 export const getTotalFeesCollected = async () => {
   try {
-    const contract = getFeeManagerContract();
-    const total = await readContract({
-      contract,
-      method: "totalFeesCollected",
-      params: [],
-    });
-    return ethers.formatUnits(total, 6);
+    const total = await getFeeManagerContract().totalFeesCollected();
+    return ethers.formatUnits(total, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting total fees collected:", error);
     return "0";
@@ -683,110 +681,58 @@ export const getTotalFeesCollected = async () => {
 };
 
 // Loan Contract Functions
-export const applyLoan = async (amount, account) => {
+export const applyLoan = async (amount, signer) => {
   try {
     if (!amount || parseFloat(amount) <= 0) {
       throw new Error("Invalid loan amount");
     }
-    if (!account) {
-      throw new Error("No account connected");
-    }
+    requireSigner(signer);
 
-    const amountInWei = ethers.parseUnits(amount.toString(), 6);
-    const loanContract = getLoanContract();
-    
-    const applyCall = prepareContractCall({
-      contract: loanContract,
-      method: "applyLoan",
-      params: [amountInWei],
-    });
-    
-    return await executeTransaction(account, applyCall);
+    const amountInWei = ethers.parseUnits(amount.toString(), USDT_DECIMALS);
+    return await executeTransaction(getLoanContract(signer).applyLoan(amountInWei));
   } catch (error) {
     console.error("Error applying for loan:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const repayLoan = async (amount, account) => {
+export const repayLoan = async (amount, signer) => {
   try {
     if (!amount || parseFloat(amount) <= 0) {
       throw new Error("Invalid repayment amount");
     }
-    if (!account) {
-      throw new Error("No account connected");
-    }
+    requireSigner(signer);
 
-    const amountInWei = ethers.parseUnits(amount.toString(), 6);
-    
-    // Approve USDT first
-    const usdtContract = getUSDTContract();
-    const approveCall = prepareContractCall({
-      contract: usdtContract,
-      method: "approve",
-      params: [CONTRACT_ADDRESSES.loan, amountInWei],
-    });
-    
-    const approvalResult = await executeTransaction(account, approveCall);
-    if (!approvalResult.success) {
-      throw new Error("USDT approval failed");
-    }
-    
-    // Wait for approval
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const amountInWei = ethers.parseUnits(amount.toString(), USDT_DECIMALS);
 
-    const loanContract = getLoanContract();
-    const repayCall = prepareContractCall({
-      contract: loanContract,
-      method: "repayLoan",
-      params: [amountInWei],
-    });
-    
-    return await executeTransaction(account, repayCall);
+    await ensureUSDTAllowance(signer, CONTRACT_ADDRESSES.loan, amountInWei);
+
+    return await executeTransaction(getLoanContract(signer).repayLoan(amountInWei));
   } catch (error) {
     console.error("Error repaying loan:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const stakeGuarantor = async (userAddress, guarantorAddress, account) => {
+export const stakeGuarantor = async (userAddress, guarantorAddress, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const loanContract = getLoanContract();
-    const stakeCall = prepareContractCall({
-      contract: loanContract,
-      method: "stakeGuarantor",
-      params: [userAddress, guarantorAddress],
-    });
-    
-    return await executeTransaction(account, stakeCall);
+    requireSigner(signer);
+    return await executeTransaction(getLoanContract(signer).stakeGuarantor(userAddress, guarantorAddress));
   } catch (error) {
     console.error("Error staking guarantor:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
 export const getLoanInfo = async (address) => {
   try {
-    const contract = getLoanContract();
-    const loanInfo = await readContract({
-      contract,
-      method: "loans",
-      params: [address],
-    });
-    
+    const loanInfo = await getLoanContract().loans(address);
     return {
-      amount: ethers.formatUnits(loanInfo.amount, 6),
+      amount: ethers.formatUnits(loanInfo.amount, USDT_DECIMALS),
       guarantor: loanInfo.guarantor,
       dueDate: new Date(Number(loanInfo.dueDate) * 1000),
       repaid: loanInfo.repaid,
-      interest: ethers.formatUnits(loanInfo.interest, 6)
+      interest: ethers.formatUnits(loanInfo.interest, USDT_DECIMALS)
     };
   } catch (error) {
     console.error("Error getting loan info:", error);
@@ -796,49 +742,28 @@ export const getLoanInfo = async (address) => {
 
 export const checkLoanEligibility = async (address) => {
   try {
-    const contract = getLoanContract();
-    const [isEligible, reason] = await readContract({
-      contract,
-      method: "checkEligibilityWithReason",
-      params: [address],
-    });
+    const [isEligible, reason] = await getLoanContract().checkEligibilityWithReason(address);
     return { isEligible, reason };
   } catch (error) {
     console.error("Error checking loan eligibility:", error);
-    return { isEligible: false, reason: error.message };
+    return { isEligible: false, reason: getContractError(error) };
   }
 };
 
-export const disburseLoan = async (user, account) => {
+export const disburseLoan = async (user, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const loanContract = getLoanContract();
-    const disburseCall = prepareContractCall({
-      contract: loanContract,
-      method: "disburseLoan",
-      params: [user],
-    });
-    
-    return await executeTransaction(account, disburseCall);
+    requireSigner(signer);
+    return await executeTransaction(getLoanContract(signer).disburseLoan(user));
   } catch (error) {
     console.error("Error disbursing loan:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
 export const getTotalLoansDisbursed = async () => {
   try {
-    const contract = getLoanContract();
-    const total = await readContract({
-      contract,
-      method: "totalLoansDisbursed",
-      params: [],
-    });
-    return ethers.formatUnits(total, 6);
+    const total = await getLoanContract().totalLoansDisbursed();
+    return ethers.formatUnits(total, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting total loans disbursed:", error);
     return "0";
@@ -847,13 +772,8 @@ export const getTotalLoansDisbursed = async () => {
 
 export const getTotalLoansRepaid = async () => {
   try {
-    const contract = getLoanContract();
-    const total = await readContract({
-      contract,
-      method: "totalLoansRepaid",
-      params: [],
-    });
-    return ethers.formatUnits(total, 6);
+    const total = await getLoanContract().totalLoansRepaid();
+    return ethers.formatUnits(total, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting total loans repaid:", error);
     return "0";
@@ -863,19 +783,13 @@ export const getTotalLoansRepaid = async () => {
 // Metrics Contract Functions
 export const getPlatformMetrics = async () => {
   try {
-    const contract = getMetricsContract();
-    const metrics = await readContract({
-      contract,
-      method: "getPlatformMetrics",
-      params: [],
-    });
-    
+    const metrics = await getMetricsContract().getPlatformMetrics();
     return {
       totalUsers: Number(metrics.totalUsers),
-      totalSavings: ethers.formatUnits(metrics.totalSavings, 6),
-      totalLoansDisbursed: ethers.formatUnits(metrics.totalLoansDisbursed, 6),
-      totalHSTRedeemed: ethers.formatUnits(metrics._totalHSTRedeemed, 18),
-      totalFundsMatched: ethers.formatUnits(metrics.totalFundsMatched, 6)
+      totalSavings: ethers.formatUnits(metrics.totalSavings, USDT_DECIMALS),
+      totalLoansDisbursed: ethers.formatUnits(metrics.totalLoansDisbursed, USDT_DECIMALS),
+      totalHSTRedeemed: ethers.formatUnits(metrics._totalHSTRedeemed, HST_DECIMALS),
+      totalFundsMatched: ethers.formatUnits(metrics.totalFundsMatched, USDT_DECIMALS)
     };
   } catch (error) {
     console.error("Error fetching platform metrics:", error);
@@ -891,142 +805,71 @@ export const getPlatformMetrics = async () => {
 
 export const getTotalHSTRedeemed = async () => {
   try {
-    const contract = getMetricsContract();
-    const total = await readContract({
-      contract,
-      method: "totalHSTRedeemed",
-      params: [],
-    });
-    return ethers.formatUnits(total, 18);
+    const total = await getMetricsContract().totalHSTRedeemed();
+    return ethers.formatUnits(total, HST_DECIMALS);
   } catch (error) {
     console.error("Error getting total HST redeemed:", error);
     return "0";
   }
 };
 
-export const updateRedemptionMetrics = async (hstAmount, account) => {
+export const updateRedemptionMetrics = async (hstAmount, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const hstAmountInWei = ethers.parseUnits(hstAmount.toString(), 18);
-    const metricsContract = getMetricsContract();
-    
-    const updateCall = prepareContractCall({
-      contract: metricsContract,
-      method: "updateRedemptionMetrics",
-      params: [hstAmountInWei],
-    });
-    
-    return await executeTransaction(account, updateCall);
+    requireSigner(signer);
+    const hstAmountInWei = ethers.parseUnits(hstAmount.toString(), HST_DECIMALS);
+    return await executeTransaction(getMetricsContract(signer).updateRedemptionMetrics(hstAmountInWei));
   } catch (error) {
     console.error("Error updating redemption metrics:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const batchDeposit = async (users, amounts, account) => {
+export const batchDeposit = async (users, amounts, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
+    requireSigner(signer);
+    const amountsInWei = amounts.map((amount) => ethers.parseUnits(amount.toString(), USDT_DECIMALS));
+    const total = amountsInWei.reduce((sum, value) => sum + value, 0n);
 
-    const amountsInWei = amounts.map(amount => ethers.parseUnits(amount.toString(), 6));
-    
-    // Approve USDT for each amount
-    const usdtContract = getUSDTContract();
-    for (let i = 0; i < amountsInWei.length; i++) {
-      const approveCall = prepareContractCall({
-        contract: usdtContract,
-        method: "approve",
-        params: [CONTRACT_ADDRESSES.saving, amountsInWei[i]],
-      });
-      
-      const approvalResult = await executeTransaction(account, approveCall);
-      if (!approvalResult.success) {
-        throw new Error(`USDT approval failed for amount ${i + 1}`);
-      }
-      
-      // Wait between approvals
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
+    await ensureUSDTAllowance(signer, CONTRACT_ADDRESSES.saving, total);
 
-    const savingsContract = getSavingsContract();
-    const batchCall = prepareContractCall({
-      contract: savingsContract,
-      method: "batchDeposit",
-      params: [users, amountsInWei],
-    });
-    
-    return await executeTransaction(account, batchCall);
+    return await executeTransaction(getSavingsContract(signer).batchDeposit(users, amountsInWei));
   } catch (error) {
     console.error("Error batch depositing:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const approveWithdrawer = async (withdrawer, familyId, account) => {
+export const approveWithdrawer = async (withdrawer, familyId, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const savingsContract = getSavingsContract();
-    const approveCall = prepareContractCall({
-      contract: savingsContract,
-      method: "approveWithdrawer",
-      params: [withdrawer, familyId],
-    });
-    
-    return await executeTransaction(account, approveCall);
+    requireSigner(signer);
+    return await executeTransaction(getSavingsContract(signer).approveWithdrawer(withdrawer, familyId));
   } catch (error) {
     console.error("Error approving withdrawer:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const revokeWithdrawer = async (withdrawer, familyId, account) => {
+export const revokeWithdrawer = async (withdrawer, familyId, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const savingsContract = getSavingsContract();
-    const revokeCall = prepareContractCall({
-      contract: savingsContract,
-      method: "revokeWithdrawer",
-      params: [withdrawer, familyId],
-    });
-    
-    return await executeTransaction(account, revokeCall);
+    requireSigner(signer);
+    return await executeTransaction(getSavingsContract(signer).revokeWithdrawer(withdrawer, familyId));
   } catch (error) {
     console.error("Error revoking withdrawer:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
 export const getSavingsInfo = async (address) => {
   try {
-    const contract = getSavingsContract();
-    const savingsInfo = await readContract({
-      contract,
-      method: "getSavingsInfo",
-      params: [address],
-    });
-    
+    const savingsInfo = await getSavingsContract().getSavingsInfo(address);
     return {
       accountType: Number(savingsInfo.accountType),
-      balance: ethers.formatUnits(savingsInfo.balance, 6),
+      balance: ethers.formatUnits(savingsInfo.balance, USDT_DECIMALS),
       planType: Number(savingsInfo.planType),
       streak: Number(savingsInfo.streak),
-      hstEarned: ethers.formatUnits(savingsInfo.hstEarned, 18),
+      hstEarned: ethers.formatUnits(savingsInfo.hstEarned, HST_DECIMALS),
       familyId: Number(savingsInfo.familyId),
-      familyTreasuryBalance: ethers.formatUnits(savingsInfo.familyTreasuryBalance, 6),
+      familyTreasuryBalance: ethers.formatUnits(savingsInfo.familyTreasuryBalance, USDT_DECIMALS),
       lastDepositTime: new Date(Number(savingsInfo.lastDepositTime) * 1000),
       detailsHash: savingsInfo.detailsHash,
       isVerified: savingsInfo.isVerified,
@@ -1040,18 +883,12 @@ export const getSavingsInfo = async (address) => {
 
 export const getUserDashboard = async (address) => {
   try {
-    const contract = getSavingsContract();
-    const dashboard = await readContract({
-      contract,
-      method: "getUserDashboard",
-      params: [address],
-    });
-    
+    const dashboard = await getSavingsContract().getUserDashboard(address);
     return {
-      balance: ethers.formatUnits(dashboard.balance, 6),
-      hstEarned: ethers.formatUnits(dashboard.hstEarned, 18),
+      balance: ethers.formatUnits(dashboard.balance, USDT_DECIMALS),
+      hstEarned: ethers.formatUnits(dashboard.hstEarned, HST_DECIMALS),
       streak: Number(dashboard.streak),
-      loanAmount: ethers.formatUnits(dashboard.loanAmount, 6),
+      loanAmount: ethers.formatUnits(dashboard.loanAmount, USDT_DECIMALS),
       loanRepaid: dashboard.loanRepaid,
       isVerified: dashboard.isVerified
     };
@@ -1063,13 +900,8 @@ export const getUserDashboard = async (address) => {
 
 export const getLockedBalance = async (address) => {
   try {
-    const contract = getSavingsContract();
-    const balance = await readContract({
-      contract,
-      method: "getLockedBalance",
-      params: [address],
-    });
-    return ethers.formatUnits(balance, 6);
+    const balance = await getSavingsContract().getLockedBalance(address);
+    return ethers.formatUnits(balance, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting locked balance:", error);
     return "0";
@@ -1078,19 +910,13 @@ export const getLockedBalance = async (address) => {
 
 export const getFamilyInfo = async (familyId) => {
   try {
-    const contract = getSavingsContract();
-    const familyInfo = await readContract({
-      contract,
-      method: "getFamilyInfo",
-      params: [familyId],
-    });
-    
+    const familyInfo = await getSavingsContract().getFamilyInfo(familyId);
     return {
       familyName: familyInfo.familyName,
       creator: familyInfo.creator,
       memberCount: Number(familyInfo.memberCount),
-      treasuryBalance: ethers.formatUnits(familyInfo.treasuryBalance, 6),
-      lockedTreasuryBalance: ethers.formatUnits(familyInfo.lockedTreasuryBalance, 6)
+      treasuryBalance: ethers.formatUnits(familyInfo.treasuryBalance, USDT_DECIMALS),
+      lockedTreasuryBalance: ethers.formatUnits(familyInfo.lockedTreasuryBalance, USDT_DECIMALS)
     };
   } catch (error) {
     console.error("Error getting family info:", error);
@@ -1100,12 +926,7 @@ export const getFamilyInfo = async (familyId) => {
 
 export const isApprovedWithdrawer = async (user, familyId) => {
   try {
-    const contract = getSavingsContract();
-    return await readContract({
-      contract,
-      method: "isApprovedWithdrawer",
-      params: [user, familyId],
-    });
+    return await getSavingsContract().isApprovedWithdrawer(user, familyId);
   } catch (error) {
     console.error("Error checking approved withdrawer:", error);
     return false;
@@ -1114,185 +935,143 @@ export const isApprovedWithdrawer = async (user, familyId) => {
 
 export const isUserVerified = async (user) => {
   try {
-    const contract = getSavingsContract();
-    return await readContract({
-      contract,
-      method: "isUserVerified",
-      params: [user],
-    });
+    return await getSavingsContract().isUserVerified(user);
   } catch (error) {
     console.error("Error checking user verification status:", error);
     return false;
   }
 };
 
-export const mintSavings = async (user, amount, account) => {
-  try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const amountInWei = ethers.parseUnits(amount.toString(), 6);
-    const savingsContract = getSavingsContract();
-    
-    const mintCall = prepareContractCall({
-      contract: savingsContract,
-      method: "mint",
-      params: [user, amountInWei],
-    });
-    
-    return await executeTransaction(account, mintCall);
-  } catch (error) {
-    console.error("Error minting savings:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
-  }
-};
-
 // USDT Contract Functions
 export const getUSDTBalance = async (address) => {
   try {
-    const contract = getUSDTContract();
-    const balance = await readContract({
-      contract,
-      method: "balanceOf",
-      params: [address],
-    });
-    return ethers.formatUnits(balance, 6);
+    const balance = await getUSDTContract().balanceOf(address);
+    return ethers.formatUnits(balance, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting USDT balance:", error);
     return "0";
   }
 };
 
-export const approveUSDT = async (spender, amount, account) => {
+export const approveUSDT = async (spender, amount, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const amountInWei = ethers.parseUnits(amount.toString(), 6);
-    const usdtContract = getUSDTContract();
-    
-    const approveCall = prepareContractCall({
-      contract: usdtContract,
-      method: "approve",
-      params: [spender, amountInWei],
-    });
-    
-    return await executeTransaction(account, approveCall);
+    requireSigner(signer);
+    const amountInWei = ethers.parseUnits(amount.toString(), USDT_DECIMALS);
+    return await executeTransaction(getUSDTContract(signer).approve(spender, amountInWei));
   } catch (error) {
     console.error("Error approving USDT:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const transferUSDT = async (to, amount, account) => {
+export const transferUSDT = async (to, amount, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const amountInWei = ethers.parseUnits(amount.toString(), 6);
-    const usdtContract = getUSDTContract();
-    
-    const transferCall = prepareContractCall({
-      contract: usdtContract,
-      method: "transfer",
-      params: [to, amountInWei],
-    });
-    
-    return await executeTransaction(account, transferCall);
+    requireSigner(signer);
+    const amountInWei = ethers.parseUnits(amount.toString(), USDT_DECIMALS);
+    return await executeTransaction(getUSDTContract(signer).transfer(to, amountInWei));
   } catch (error) {
     console.error("Error transferring USDT:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const transferFromUSDT = async (from, to, amount, account) => {
+export const transferFromUSDT = async (from, to, amount, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const amountInWei = ethers.parseUnits(amount.toString(), 6);
-    const usdtContract = getUSDTContract();
-    
-    const transferCall = prepareContractCall({
-      contract: usdtContract,
-      method: "transferFrom",
-      params: [from, to, amountInWei],
-    });
-    
-    return await executeTransaction(account, transferCall);
+    requireSigner(signer);
+    const amountInWei = ethers.parseUnits(amount.toString(), USDT_DECIMALS);
+    return await executeTransaction(getUSDTContract(signer).transferFrom(from, to, amountInWei));
   } catch (error) {
     console.error("Error transferring from USDT:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
 export const getUSDTAllowance = async (owner, spender) => {
   try {
-    const contract = getUSDTContract();
-    const allowance = await readContract({
-      contract,
-      method: "allowance",
-      params: [owner, spender],
-    });
-    return ethers.formatUnits(allowance, 6);
+    const allowance = await getUSDTContract().allowance(owner, spender);
+    return ethers.formatUnits(allowance, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting USDT allowance:", error);
     return "0";
   }
 };
 
-export const getNetworkName = async () => {
-  return celoAlfajores.name;
-};
+export const getNetworkName = async () => ACTIVE_CHAIN.chainName;
 
-// Utility function to get network info
 export const getNetworkInfo = async () => {
-  return {
-    chainId: celoAlfajores.id,
-    name: celoAlfajores.name,
-    blockNumber: null, // Would need separate call
-    isCorrectNetwork: true // ThirdWeb handles this
-  };
-};
-
-// Celo-specific gas price helper (deprecated with ThirdWeb)
-export const getOptimalGasPrice = async () => {
-  console.warn("getOptimalGasPrice is deprecated with ThirdWeb - gas is handled automatically");
-  return {
-    gasPrice: null,
-    maxFeePerGas: null,
-    maxPriorityFeePerGas: null
-  };
-};
-
-// Fetch savings transaction history (needs updated implementation for ThirdWeb)
-export async function getSavingsTransactions(address) {
-  console.warn("getSavingsTransactions needs to be reimplemented with ThirdWeb event filtering");
   try {
-    // TODO: Implement with ThirdWeb's event filtering when available
-    // For now, return empty array
+    const blockNumber = await getProvider().getBlockNumber();
+    return {
+      chainId: ACTIVE_CHAIN.id,
+      name: ACTIVE_CHAIN.chainName,
+      blockNumber,
+    };
+  } catch (error) {
+    console.error("Error getting network info:", error);
+    return { chainId: ACTIVE_CHAIN.id, name: ACTIVE_CHAIN.chainName, blockNumber: null };
+  }
+};
+
+// How far back to scan for a user's on-chain history
+const EVENT_LOOKBACK_BLOCKS = 100000;
+
+const queryUserEvents = async (contract, eventName, address, fromBlock, toBlock, type) => {
+  try {
+    const logs = await contract.queryFilter(contract.filters[eventName](address), fromBlock, toBlock);
+    return await Promise.all(
+      logs.map(async (log) => {
+        const block = await log.getBlock();
+        const amount = ethers.formatUnits(log.args?.amount ?? 0n, USDT_DECIMALS);
+        return {
+          type,
+          amount,
+          details: `${amount} USDT`,
+          timestamp: block.timestamp * 1000,
+          txHash: log.transactionHash,
+        };
+      })
+    );
+  } catch (error) {
+    console.error(`Error querying ${eventName} events:`, error);
     return [];
+  }
+};
+
+// Fetch savings transaction history from contract events
+export async function getSavingsTransactions(address) {
+  try {
+    const contract = getSavingsContract();
+    const toBlock = await getProvider().getBlockNumber();
+    const fromBlock = Math.max(0, toBlock - EVENT_LOOKBACK_BLOCKS);
+
+    const [deposits, withdrawals] = await Promise.all([
+      queryUserEvents(contract, "Deposit", address, fromBlock, toBlock, "Deposit"),
+      queryUserEvents(contract, "Withdrawal", address, fromBlock, toBlock, "Withdrawal"),
+    ]);
+
+    return [...deposits, ...withdrawals].sort((a, b) => b.timestamp - a.timestamp);
   } catch (error) {
     console.error("Error fetching transactions:", error);
     return [];
   }
 }
 
-// Fetch all user activities (needs updated implementation for ThirdWeb)
+// Savings events plus loan activity
 export async function getUserActivities(address) {
-  console.warn("getUserActivities needs to be reimplemented with ThirdWeb event filtering");
   try {
-    // TODO: Implement with ThirdWeb's event filtering when available
-    // For now, return empty array
-    return [];
+    const savingsContract = getSavingsContract();
+    const loanContract = getLoanContract();
+    const toBlock = await getProvider().getBlockNumber();
+    const fromBlock = Math.max(0, toBlock - EVENT_LOOKBACK_BLOCKS);
+
+    const activities = await Promise.all([
+      queryUserEvents(savingsContract, "Deposit", address, fromBlock, toBlock, "Deposit"),
+      queryUserEvents(savingsContract, "Withdrawal", address, fromBlock, toBlock, "Withdrawal"),
+      queryUserEvents(loanContract, "LoanDisbursed", address, fromBlock, toBlock, "LoanDisbursed"),
+      queryUserEvents(loanContract, "LoanRepaid", address, fromBlock, toBlock, "LoanRepaid"),
+    ]);
+
+    return activities.flat().sort((a, b) => b.timestamp - a.timestamp);
   } catch (error) {
     console.error("Error fetching user activities:", error);
     return [];
@@ -1300,7 +1079,7 @@ export async function getUserActivities(address) {
 }
 
 // Donor Contract Functions
-export const donate = async (amount, poolType, account) => {
+export const donate = async (amount, poolType, signer) => {
   try {
     if (!amount || parseFloat(amount) <= 0) {
       throw new Error("Invalid donation amount");
@@ -1308,54 +1087,24 @@ export const donate = async (amount, poolType, account) => {
     if (!poolType || (poolType !== "standard" && poolType !== "feeFree")) {
       throw new Error("Invalid pool type");
     }
-    if (!account) {
-      throw new Error("No account connected");
-    }
+    requireSigner(signer);
 
-    const amountInWei = ethers.parseUnits(amount.toString(), 6);
-    
-    // Approve USDT first
-    const usdtContract = getUSDTContract();
-    const approveCall = prepareContractCall({
-      contract: usdtContract,
-      method: "approve",
-      params: [CONTRACT_ADDRESSES.donorContract, amountInWei],
-    });
-    
-    const approvalResult = await executeTransaction(account, approveCall);
-    if (!approvalResult.success) {
-      throw new Error("USDT approval failed");
-    }
-    
-    // Wait for approval
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const amountInWei = ethers.parseUnits(amount.toString(), USDT_DECIMALS);
 
-    const donorContract = getDonorContract();
-    const donateCall = prepareContractCall({
-      contract: donorContract,
-      method: "donate",
-      params: [amountInWei, poolType],
-    });
-    
-    return await executeTransaction(account, donateCall);
+    await ensureUSDTAllowance(signer, CONTRACT_ADDRESSES.donorContract, amountInWei);
+
+    return await executeTransaction(getDonorContract(signer).donate(amountInWei, poolType));
   } catch (error) {
     console.error("Error donating:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
 export const getDonorInfo = async (address) => {
   try {
-    const contract = getDonorContract();
-    const donorInfo = await readContract({
-      contract,
-      method: "donorInfo",
-      params: [address],
-    });
-    
+    const donorInfo = await getDonorContract().donorInfo(address);
     return {
-      contribution: ethers.formatUnits(donorInfo.contribution, 6),
+      contribution: ethers.formatUnits(donorInfo.contribution, USDT_DECIMALS),
       poolType: donorInfo.poolType,
       peopleHelped: Number(donorInfo.peopleHelped),
       hstMatched: Number(donorInfo.hstMatched),
@@ -1367,59 +1116,31 @@ export const getDonorInfo = async (address) => {
   }
 };
 
-export const matchRedemption = async (user, hstAmount, facility, account) => {
+export const matchRedemption = async (user, hstAmount, facility, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const hstAmountInWei = ethers.parseUnits(hstAmount.toString(), 18);
-    const donorContract = getDonorContract();
-    
-    const matchCall = prepareContractCall({
-      contract: donorContract,
-      method: "matchRedemption",
-      params: [user, hstAmountInWei, facility],
-    });
-    
-    return await executeTransaction(account, matchCall);
+    requireSigner(signer);
+    const hstAmountInWei = ethers.parseUnits(hstAmount.toString(), HST_DECIMALS);
+    return await executeTransaction(getDonorContract(signer).matchRedemption(user, hstAmountInWei, facility));
   } catch (error) {
     console.error("Error matching redemption:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const setKYCStatus = async (donor, status, account) => {
+export const setKYCStatus = async (donor, status, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const donorContract = getDonorContract();
-    const setKYCCall = prepareContractCall({
-      contract: donorContract,
-      method: "setKYCStatus",
-      params: [donor, status],
-    });
-    
-    return await executeTransaction(account, setKYCCall);
+    requireSigner(signer);
+    return await executeTransaction(getDonorContract(signer).setKYCStatus(donor, status));
   } catch (error) {
     console.error("Error setting KYC status:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
 export const getFeeFreePoolBalance = async () => {
   try {
-    const contract = getDonorContract();
-    const balance = await readContract({
-      contract,
-      method: "feeFreePoolBalance",
-      params: [],
-    });
-    return ethers.formatUnits(balance, 6);
+    const balance = await getDonorContract().feeFreePoolBalance();
+    return ethers.formatUnits(balance, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting fee free pool balance:", error);
     return "0";
@@ -1428,13 +1149,8 @@ export const getFeeFreePoolBalance = async () => {
 
 export const getStandardPoolBalance = async () => {
   try {
-    const contract = getDonorContract();
-    const balance = await readContract({
-      contract,
-      method: "standardPoolBalance",
-      params: [],
-    });
-    return ethers.formatUnits(balance, 6);
+    const balance = await getDonorContract().standardPoolBalance();
+    return ethers.formatUnits(balance, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting standard pool balance:", error);
     return "0";
@@ -1443,13 +1159,8 @@ export const getStandardPoolBalance = async () => {
 
 export const getTotalFundsMatched = async () => {
   try {
-    const contract = getDonorContract();
-    const total = await readContract({
-      contract,
-      method: "totalFundsMatched",
-      params: [],
-    });
-    return ethers.formatUnits(total, 6);
+    const total = await getDonorContract().totalFundsMatched();
+    return ethers.formatUnits(total, USDT_DECIMALS);
   } catch (error) {
     console.error("Error getting total funds matched:", error);
     return "0";
@@ -1458,12 +1169,7 @@ export const getTotalFundsMatched = async () => {
 
 export const getFacilityPatientsServed = async (facility) => {
   try {
-    const contract = getDonorContract();
-    const patients = await readContract({
-      contract,
-      method: "facilityPatientsServed",
-      params: [facility],
-    });
+    const patients = await getDonorContract().facilityPatientsServed(facility);
     return Number(patients);
   } catch (error) {
     console.error("Error getting facility patients served:", error);
@@ -1472,65 +1178,32 @@ export const getFacilityPatientsServed = async (facility) => {
 };
 
 // HST Contract Functions
-export const registerFacility = async (name, licenseNumber, account) => {
+export const registerFacility = async (name, licenseNumber, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const hstContract = getHSTContract();
-    const registerCall = prepareContractCall({
-      contract: hstContract,
-      method: "registerFacility",
-      params: [name, licenseNumber],
-    });
-    
-    return await executeTransaction(account, registerCall);
+    requireSigner(signer);
+    return await executeTransaction(getHSTContract(signer).registerFacility(name, licenseNumber));
   } catch (error) {
     console.error("Error registering facility:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const verifyFacility = async (facility, account) => {
+export const verifyFacility = async (facility, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const hstContract = getHSTContract();
-    const verifyCall = prepareContractCall({
-      contract: hstContract,
-      method: "verifyFacility",
-      params: [facility],
-    });
-    
-    return await executeTransaction(account, verifyCall);
+    requireSigner(signer);
+    return await executeTransaction(getHSTContract(signer).verifyFacility(facility));
   } catch (error) {
     console.error("Error verifying facility:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };
 
-export const addPartneredFacility = async (facility, account) => {
+export const addPartneredFacility = async (facility, signer) => {
   try {
-    if (!account) {
-      throw new Error("No account connected");
-    }
-
-    const hstContract = getHSTContract();
-    const addCall = prepareContractCall({
-      contract: hstContract,
-      method: "addPartneredFacility",
-      params: [facility],
-    });
-    
-    return await executeTransaction(account, addCall);
+    requireSigner(signer);
+    return await executeTransaction(getHSTContract(signer).addPartneredFacility(facility));
   } catch (error) {
     console.error("Error adding partnered facility:", error);
-    const errorMessage = getContractError(error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: getContractError(error) };
   }
 };

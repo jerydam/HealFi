@@ -6,141 +6,109 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, CreditCard, Heart, ArrowUpRight, Plus, Clock, CheckCircle, Loader2, ExternalLink, AlertCircle, ShieldCheck } from "lucide-react";
-import { 
-  useActiveAccount, 
-  useReadContract,
-  useActiveWallet
-} from "thirdweb/react";
-import { 
-  getSavingsContract, 
-  getLoanContract, 
-  getHSTContract,
-  getUserActivities // Note: This needs to be implemented with ThirdWeb events
+import { Wallet, CreditCard, Heart, ArrowUpRight, Plus, Clock, CheckCircle, Loader2, ExternalLink, ShieldCheck } from "lucide-react";
+import { useWallet } from "@/lib/wallet-context";
+import {
+  getSavingsInfo,
+  getLoanInfo,
+  getHSTBalance,
+  getUserActivities,
+  getExplorerTxUrl
 } from "@/lib/web3";
 
 export default function Dashboard() {
   const router = useRouter();
-  const account = useActiveAccount();
-  const wallet = useActiveWallet();
-  const [isVerified, setIsVerified] = useState(false);
+  const { address, isConnected, isReconnecting, disconnect } = useWallet();
+
   const [activities, setActivities] = useState([]);
+  const [savings, setSavings] = useState(null);
+  const [loan, setLoan] = useState(null);
+  const [hstBalanceFormatted, setHstBalanceFormatted] = useState("0.00");
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  // Check verification status from localStorage
+  // Load everything the dashboard shows
   useEffect(() => {
-    if (account?.address) {
-      const verificationStatus = localStorage.getItem(`verification_${account.address}`);
-      setIsVerified(verificationStatus === "true");
+    let cancelled = false;
+
+    if (!address) {
+      setIsLoading(false);
+      return;
     }
-  }, [account?.address]);
 
-  // Get savings info using ThirdWeb hooks
-  const { 
-    data: savingsInfo, 
-    isLoading: savingsLoading,
-    error: savingsError 
-  } = useReadContract({
-    contract: getSavingsContract(),
-    method: "getSavingsInfo",
-    params: [account?.address || ""],
-    queryOptions: {
-      enabled: !!account?.address,
-    },
-  });
+    const loadDashboard = async () => {
+      setIsLoading(true);
+      setLoadError(false);
+      try {
+        const [savingsInfo, loanInfo, hstBalance] = await Promise.all([
+          getSavingsInfo(address),
+          getLoanInfo(address),
+          getHSTBalance(address),
+        ]);
 
-  // Get loan info using ThirdWeb hooks
-  const { 
-    data: loanData, 
-    isLoading: loanLoading 
-  } = useReadContract({
-    contract: getLoanContract(),
-    method: "loans",
-    params: [account?.address || ""],
-    queryOptions: {
-      enabled: !!account?.address,
-    },
-  });
+        if (cancelled) return;
 
-  // Get HST balance using ThirdWeb hooks
-  const { 
-    data: hstBalance, 
-    isLoading: hstLoading 
-  } = useReadContract({
-    contract: getHSTContract(),
-    method: "balanceOf",
-    params: [account?.address || ""],
-    queryOptions: {
-      enabled: !!account?.address,
-    },
-  });
-
-  // Load user activities (placeholder - needs proper implementation)
-  useEffect(() => {
-    const loadActivities = async () => {
-      if (account?.address) {
-        try {
-          const userActivities = await getUserActivities(account.address);
-          setActivities(userActivities.slice(0, 5));
-        } catch (error) {
-          console.error("Error loading activities:", error);
+        if (!savingsInfo) {
+          setLoadError(true);
+          return;
         }
+
+        const isRegistered = savingsInfo.accountType > 0 || parseFloat(savingsInfo.balance) > 0;
+        if (!isRegistered) {
+          router.push("/register");
+          return;
+        }
+
+        setSavings(savingsInfo);
+        setLoan(loanInfo && parseFloat(loanInfo.amount) > 0 ? loanInfo : null);
+        setHstBalanceFormatted(Number(hstBalance).toFixed(2));
+      } catch (error) {
+        console.error("Error loading dashboard:", error);
+        if (!cancelled) setLoadError(true);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     };
-    
-    loadActivities();
-  }, [account?.address]);
 
-  // Redirect if not registered
+    loadDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, [address, router]);
+
+  // Load user activities
   useEffect(() => {
-    if (savingsInfo && !savingsLoading && !savingsError) {
-      const isRegistered = savingsInfo.accountType > 0 || savingsInfo.balance > 0;
-      if (!isRegistered) {
-        router.push("/register");
+    let cancelled = false;
+
+    const loadActivities = async () => {
+      if (!address) return;
+      try {
+        const userActivities = await getUserActivities(address);
+        if (!cancelled) setActivities(userActivities.slice(0, 5));
+      } catch (error) {
+        console.error("Error loading activities:", error);
       }
-    }
-  }, [savingsInfo, savingsLoading, savingsError, router]);
-
-  // Format blockchain data
-  const formatSavingsInfo = (data) => {
-    if (!data) return null;
-    return {
-      balance: (Number(data.balance) / 1e6).toFixed(2), // Convert from wei to USDT
-      hstEarned: (Number(data.hstEarned) / 1e18).toFixed(2), // Convert from wei to HST
-      streak: Number(data.streak),
-      accountType: Number(data.accountType),
     };
-  };
 
-  const formatLoanInfo = (data) => {
-    if (!data || Number(data.amount) === 0) return null;
-    return {
-      amount: (Number(data.amount) / 1e6).toFixed(2),
-      repaid: data.repaid,
-      dueDate: new Date(Number(data.dueDate) * 1000),
-      interest: (Number(data.interest) / 1e6).toFixed(2),
+    loadActivities();
+    return () => {
+      cancelled = true;
     };
-  };
-
-  const formatHSTBalance = (balance) => {
-    if (!balance) return "0.00";
-    return (Number(balance) / 1e18).toFixed(2);
-  };
+  }, [address]);
 
   const calculateSavingsProgress = () => {
-    const savings = formatSavingsInfo(savingsInfo);
     if (!savings) return 0;
     const goal = 10;
     return Math.min(100, (parseFloat(savings.balance) / goal) * 100);
   };
 
   const calculateLoanProgress = () => {
-    const loan = formatLoanInfo(loanData);
     if (!loan || loan.repaid) return 0;
     const now = new Date();
     const dueDate = loan.dueDate;
     const loanDuration = 30 * 24 * 60 * 60 * 1000;
     const elapsed = now - (dueDate - loanDuration);
-    return Math.min(100, (elapsed / loanDuration) * 100);
+    return Math.min(100, Math.max(0, (elapsed / loanDuration) * 100));
   };
 
   const formatDate = (timestamp) => {
@@ -154,9 +122,7 @@ export default function Dashboard() {
     });
   };
 
-  const getExplorerLink = (txHash) => {
-    return `https://celo-alfajores.blockscout.com/tx/${txHash}`;
-  };
+  const getExplorerLink = (txHash) => getExplorerTxUrl(txHash);
 
   const getActivityIcon = (type) => {
     if (type.includes("Register")) {
@@ -185,7 +151,7 @@ export default function Dashboard() {
   };
 
   // Show loading state
-  if (!account || !wallet) {
+  if (!isConnected && !isReconnecting) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-12 text-center">
         <h2 className="text-2xl font-bold mb-2 dark:text-white">Connect Your Wallet</h2>
@@ -194,7 +160,7 @@ export default function Dashboard() {
     );
   }
 
-  if (savingsLoading || loanLoading || hstLoading) {
+  if (isLoading || isReconnecting) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-12 flex items-center justify-center">
         <div className="text-center">
@@ -205,7 +171,7 @@ export default function Dashboard() {
     );
   }
 
-  if (savingsError) {
+  if (loadError) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-12 text-center">
         <h2 className="text-2xl font-bold mb-2 dark:text-white">Error</h2>
@@ -213,10 +179,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  const savings = formatSavingsInfo(savingsInfo);
-  const loan = formatLoanInfo(loanData);
-  const hstBalanceFormatted = formatHSTBalance(hstBalance);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -230,33 +192,24 @@ export default function Dashboard() {
               </p>
               
               {/* Verification Status Banner */}
-              {!isVerified ? (
-                <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 text-sm text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
-                  <div className="flex items-start">
-                    <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="font-medium">Verification Required</p>
-                      <p className="mt-1">
-                        Please verify your identity to access loans and withdrawals.{" "}
-                        <Button
-                          variant="link"
-                          className="p-0 text-orange-700 dark:text-orange-300 underline h-auto"
-                          onClick={() => router.push("/verify")}
-                        >
-                          Verify Now
-                        </Button>
-                      </p>
-                    </div>
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 text-sm text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start">
+                  <ShieldCheck className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium">Identity Verification — Coming Soon</p>
+                    <p className="mt-1">
+                      All HealFi features are available in the meantime.{" "}
+                      <Button
+                        variant="link"
+                        className="p-0 text-blue-700 dark:text-blue-300 underline h-auto"
+                        onClick={() => router.push("/verify")}
+                      >
+                        Learn more
+                      </Button>
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 text-sm text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800">
-                  <div className="flex items-center">
-                    <ShieldCheck className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
-                    <p className="font-medium">Identity Verified ✓</p>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -319,9 +272,8 @@ export default function Dashboard() {
                     onClick={() => router.push("/loans")}
                     variant="outline"
                     className="w-full text-sm sm:text-base"
-                    disabled={!isVerified}
                   >
-                    {isVerified ? (loan && !loan.repaid ? "Manage Loan" : "Apply for Loan") : "Verify to Access Loans"}
+                    {loan && !loan.repaid ? "Manage Loan" : "Apply for Loan"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -472,13 +424,16 @@ export default function Dashboard() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
                         <div className="mb-2 sm:mb-0">
                           <p className="font-medium dark:text-white">Connected Wallet</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{account.address.slice(0, 6)}...{account.address.slice(-4)}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{address.slice(0, 6)}...{address.slice(-4)}</p>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
                           className="w-full sm:w-auto"
-                          onClick={() => router.push("/")}
+                          onClick={() => {
+                            disconnect();
+                            router.push("/");
+                          }}
                         >
                           Disconnect
                         </Button>
@@ -486,20 +441,16 @@ export default function Dashboard() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
                         <div className="mb-2 sm:mb-0">
                           <p className="font-medium dark:text-white">Verification Status</p>
-                          <p className={`text-sm ${isVerified ? 'text-green-500' : 'text-orange-500'}`}>
-                            {isVerified ? "✓ Verified" : "⚠ Not Verified"}
-                          </p>
+                          <p className="text-sm text-blue-500">Coming soon</p>
                         </div>
-                        {!isVerified && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full sm:w-auto"
-                            onClick={() => router.push("/verify")}
-                          >
-                            Verify Now
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full sm:w-auto"
+                          onClick={() => router.push("/verify")}
+                        >
+                          Learn More
+                        </Button>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-4">
                         <div className="mb-2 sm:mb-0">
